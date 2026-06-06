@@ -33,21 +33,20 @@ services. The only manual steps are:
 | `VPS_HOST` | VPS IP address |
 | `VPS_USER` | SSH username |
 | `VPS_SSH_KEY` | Private SSH key for the deploy user |
+| `DB_PASSWORD` | Strong password for the PostgreSQL database |
 
-**2. Trigger the first deploy** by pushing to `main` or running the workflow
-manually. It will fail on craft-dashboard because `/opt/vps-infra/.env`
-doesn't exist yet — that's expected.
-
-**3. Create the env file on the VPS:**
+**2. Create the env file on the VPS:**
 
 ```bash
 cp /opt/vps-infra/.env.example /opt/vps-infra/.env
 chmod 600 /opt/vps-infra/.env
-# Edit /opt/vps-infra/.env — set DB_PASSWORD to a strong password and paste
-# the same value into DATABASE_URL, replacing <password>.
+# Edit /opt/vps-infra/.env — paste the DB_PASSWORD value into DATABASE_URL,
+# replacing <password>. Fill in the remaining tokens.
 ```
 
-**4. Re-run the deploy workflow.** All services should come up cleanly.
+**3. Trigger the first deploy** by pushing to `main` or running the workflow
+manually. The deploy creates a podman secret for the DB password so it never
+appears in logs, then starts all services.
 
 ## Adding a new service
 

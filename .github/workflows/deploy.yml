@@ -13,10 +13,13 @@ jobs:
 
       - name: Deploy to VPS
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        env:
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          envs: DB_PASSWORD
           script: |
             set -euo pipefail
 
@@ -35,14 +38,17 @@ jobs:
             # Ensure the shared network exists.
             podman network inspect vps-net >/dev/null 2>&1 || podman network create vps-net
 
+            # Create or update the DB password podman secret.
+            printf '%s' "$DB_PASSWORD" | podman secret create db_password --replace -
+
             # Pull images explicitly — podman-compose swallows pull exit codes.
             podman pull docker.io/library/caddy:2-alpine
             podman pull docker.io/library/postgres:16-alpine
             podman pull ghcr.io/mr-cal/craft-dashboard:latest
 
             # Restart services.
-            podman-compose -f docker-compose.caddy.yml up -d --remove-orphans
-            podman-compose -f docker-compose.craft-dashboard.yml up -d --remove-orphans
+            podman-compose -f docker-compose.caddy.yml up -d
+            podman-compose -f docker-compose.craft-dashboard.yml up -d
 
             # Verify containers are running — podman-compose swallows up exit codes.
             podman wait --condition running vps-infra_caddy_1
