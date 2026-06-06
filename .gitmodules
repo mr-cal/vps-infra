@@ -1,0 +1,3 @@
+[submodule "static-sites/egg-calculator"]
+	path = static-sites/egg-calculator
+	url = https://github.com/mr-cal/egg-calculator.git
