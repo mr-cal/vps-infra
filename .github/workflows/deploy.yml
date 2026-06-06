@@ -39,7 +39,8 @@ jobs:
             podman network inspect vps-net >/dev/null 2>&1 || podman network create vps-net
 
             # Create or update the DB password podman secret.
-            printf '%s' "$DB_PASSWORD" | podman secret create db_password --replace -
+            podman secret rm db_password 2>/dev/null || true
+            printf '%s' "$DB_PASSWORD" | podman secret create db_password -
 
             # Pull images explicitly — podman-compose swallows pull exit codes.
             podman pull docker.io/library/caddy:2-alpine
