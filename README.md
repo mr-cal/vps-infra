@@ -1,6 +1,6 @@
 # VPS Infrastructure
 
-Docker Compose setup for a Linode VPS running multiple websites behind Caddy.
+Podman Compose setup for a Linode VPS running multiple websites behind Caddy.
 
 ## Architecture
 
@@ -11,7 +11,7 @@ Internet ──► Caddy (ports 80/443, auto-TLS)
                └──► (more services as needed)
 ```
 
-Services are split into separate Compose files joined by a shared Docker
+Services are split into separate Compose files joined by a shared podman
 network (`vps-net`), so each service can be updated and restarted
 independently.
 
@@ -20,32 +20,39 @@ independently.
 | `docker-compose.caddy.yml` | Caddy reverse proxy, static sites |
 | `docker-compose.craft-dashboard.yml` | craft-dashboard app, PostgreSQL |
 
-## Quick start
+## First-time VPS setup
 
-Run on the VPS:
+The deploy workflow (`deploy.yml`) handles installing podman, cloning this
+repo to `/opt/vps-infra`, creating the `vps-net` network, and starting all
+services. The only manual steps are:
+
+**1. Add GitHub Actions secrets** (repo Settings → Secrets and variables → Actions):
+
+| Secret | Value |
+|---|---|
+| `VPS_HOST` | VPS IP address |
+| `VPS_USER` | SSH username |
+| `VPS_SSH_KEY` | Private SSH key for the deploy user |
+
+**2. Trigger the first deploy** by pushing to `main` or running the workflow
+manually. It will fail on craft-dashboard because `/opt/vps-infra/.env`
+doesn't exist yet — that's expected.
+
+**3. Create the env file on the VPS:**
 
 ```bash
-# 1. Install podman
-apt install -y podman podman-compose
-
-# 2. Create the shared network
-podman network create vps-net
-
-# 3. Configure secrets
-cp .env.example .env
-# Edit .env with real values
-
-# 4. Start services
-podman-compose -f docker-compose.caddy.yml up -d
-podman-compose -f docker-compose.craft-dashboard.yml up -d
+cp /opt/vps-infra/.env.example /opt/vps-infra/.env
+# Edit /opt/vps-infra/.env with real values
 ```
+
+**4. Re-run the deploy workflow.** All services should come up cleanly.
 
 ## Adding a new service
 
 1. Create `docker-compose.<name>.yml` with the service definition.
 2. Join the `vps-net` network (see existing files for the pattern).
 3. Add a route in `caddy/Caddyfile`.
-4. Update `.github/workflows/deploy.yml` to include the new compose file.
+4. Update `.github/workflows/deploy.yml` to pull and start the new service.
 
 ## Backups
 
