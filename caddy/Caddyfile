@@ -1,8 +1,7 @@
-# Replace these with real domain names.
 # Caddy auto-obtains and renews TLS certificates for all listed domains.
 
 # craft-dashboard — reverse proxy to the FastAPI app
-dashboard.example.com {
+craft-dashboard.site {
 	reverse_proxy craft-dashboard:8000
 }
 
