@@ -9,7 +9,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 #v6.0.3
 
       - name: Deploy to VPS
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
@@ -43,3 +43,8 @@ jobs:
             # Restart services.
             podman-compose -f docker-compose.caddy.yml up -d --remove-orphans
             podman-compose -f docker-compose.craft-dashboard.yml up -d --remove-orphans
+
+            # Verify containers are running — podman-compose swallows up exit codes.
+            podman wait --condition running vps-infra_caddy_1
+            podman wait --condition running vps-infra_postgres_1
+            podman wait --condition running vps-infra_craft-dashboard_1
