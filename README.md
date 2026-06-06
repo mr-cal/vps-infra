@@ -52,7 +52,42 @@ cp /opt/vps-infra/.env.example /opt/vps-infra/.env
 1. Create `docker-compose.<name>.yml` with the service definition.
 2. Join the `vps-net` network (see existing files for the pattern).
 3. Add a route in `caddy/Caddyfile`.
-4. Update `.github/workflows/deploy.yml` to pull and start the new service.
+4. Add `podman pull` and `podman-compose -f docker-compose.<name>.yml up -d` lines to `deploy.yml`.
+5. Push to `main` — the deploy workflow will start the new service.
+
+## Debugging
+
+On the VPS:
+
+```bash
+# Container status
+podman ps -a
+
+# Logs
+podman logs vps-infra_caddy_1
+podman logs vps-infra_postgres_1
+podman logs vps-infra_craft-dashboard_1
+
+# Follow logs live
+podman logs -f vps-infra_caddy_1
+
+# Network
+podman network inspect vps-net
+```
+
+From another machine:
+
+```bash
+# Check DNS resolves
+dig +short <domain>
+
+# Check HTTP redirect and HTTPS
+curl -I http://<domain>
+curl -I https://<domain>
+
+# Check a specific endpoint
+curl https://<domain>/health
+```
 
 ## Backups
 
