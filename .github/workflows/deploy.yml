@@ -44,14 +44,15 @@ jobs:
 
             # Pull images explicitly — podman-compose swallows pull exit codes.
             podman pull docker.io/library/caddy:2-alpine
-            podman pull docker.io/library/postgres:16-alpine
+            podman pull docker.io/pgvector/pgvector:pg16
             podman pull ghcr.io/mr-cal/craft-dashboard:latest
 
             # Restart services.
             podman-compose -f docker-compose.caddy.yml up -d
             podman-compose -f docker-compose.craft-dashboard.yml up -d
 
-            # Verify containers are running — podman-compose swallows up exit codes.
-            podman wait --condition running vps-infra_caddy_1
-            podman wait --condition running vps-infra_postgres_1
-            podman wait --condition running vps-infra_craft-dashboard_1
+            # Verify containers are running — podman-compose swallows up exit codes
+            # and podman wait exits 0 regardless of the container exit code.
+            podman ps --filter name=vps-infra_caddy_1 --filter status=running --format '{{.Names}}' | grep -q vps-infra_caddy_1
+            podman ps --filter name=vps-infra_postgres_1 --filter status=running --format '{{.Names}}' | grep -q vps-infra_postgres_1
+            podman ps --filter name=vps-infra_craft-dashboard_1 --filter status=running --format '{{.Names}}' | grep -q vps-infra_craft-dashboard_1
