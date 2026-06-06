@@ -1,0 +1,25 @@
+# Caddy reverse proxy — shared infrastructure.
+# Serves static sites and routes to backend services via the vps-net network.
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - ./static-sites:/srv:ro
+    networks:
+      - vps-net
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+networks:
+  vps-net:
+    external: true

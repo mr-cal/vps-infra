@@ -1,0 +1,36 @@
+# craft-dashboard application and its PostgreSQL database.
+
+services:
+  craft-dashboard:
+    image: ghcr.io/mr-cal/craft-dashboard:latest
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - vps-net
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: craft_dashboard
+      POSTGRES_USER: craft_dashboard
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U craft_dashboard"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vps-net
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+
+networks:
+  vps-net:
+    external: true

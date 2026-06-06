@@ -1,0 +1,13 @@
+# Replace these with real domain names.
+# Caddy auto-obtains and renews TLS certificates for all listed domains.
+
+# craft-dashboard — reverse proxy to the FastAPI app
+dashboard.example.com {
+	reverse_proxy craft-dashboard:8000
+}
+
+# egg-calculator — static site served from the git submodule
+eggcalculator.com {
+	root * /srv/egg-calculator/src
+	file_server
+}

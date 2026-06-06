@@ -1,0 +1,38 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            if [ ! -d /opt/vps-infra ]; then
+              git clone git@github.com:mr-cal/vps-infra.git /opt/vps-infra
+            fi
+
+            cd /opt/vps-infra
+            git pull origin main
+            git submodule update --init --recursive
+
+            # Ensure the shared network exists.
+            docker network inspect vps-net >/dev/null 2>&1 || docker network create vps-net
+
+            # Restart Caddy (picks up Caddyfile changes and new static sites).
+            docker compose -f docker-compose.caddy.yml pull
+            docker compose -f docker-compose.caddy.yml up -d --remove-orphans
+
+            # Restart craft-dashboard (picks up new Docker image).
+            docker compose -f docker-compose.craft-dashboard.yml pull
+            docker compose -f docker-compose.craft-dashboard.yml up -d --remove-orphans
