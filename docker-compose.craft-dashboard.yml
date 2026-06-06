@@ -9,7 +9,7 @@ services:
         condition: service_healthy
     networks:
       - vps-net
-    restart: unless-stopped
+    restart: on-failure
 
   postgres:
     image: docker.io/pgvector/pgvector:pg16
