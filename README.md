@@ -42,7 +42,9 @@ doesn't exist yet — that's expected.
 
 ```bash
 cp /opt/vps-infra/.env.example /opt/vps-infra/.env
-# Edit /opt/vps-infra/.env with real values
+chmod 600 /opt/vps-infra/.env
+# Edit /opt/vps-infra/.env — set DB_PASSWORD to a strong password and paste
+# the same value into DATABASE_URL, replacing <password>.
 ```
 
 **4. Re-run the deploy workflow.** All services should come up cleanly.
