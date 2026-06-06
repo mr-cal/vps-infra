@@ -10,7 +10,7 @@ TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP_FILE="${BACKUP_DIR}/craft_dashboard_${TIMESTAMP}.sql.gz"
 
 # Dump the database via the running postgres container.
-docker compose -f "${BACKUP_DIR}/../docker-compose.craft-dashboard.yml" \
+podman-compose -f "${BACKUP_DIR}/../docker-compose.craft-dashboard.yml" \
   exec -T postgres \
   pg_dump -U craft_dashboard craft_dashboard \
   | gzip > "${BACKUP_FILE}"

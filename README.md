@@ -25,16 +25,19 @@ independently.
 Run on the VPS:
 
 ```bash
-# 1. Create the shared network
-docker network create vps-net
+# 1. Install podman
+apt install -y podman podman-compose
 
-# 2. Configure secrets
+# 2. Create the shared network
+podman network create vps-net
+
+# 3. Configure secrets
 cp .env.example .env
 # Edit .env with real values
 
-# 3. Start services
-docker compose -f docker-compose.caddy.yml up -d
-docker compose -f docker-compose.craft-dashboard.yml up -d
+# 4. Start services
+podman-compose -f docker-compose.caddy.yml up -d
+podman-compose -f docker-compose.craft-dashboard.yml up -d
 ```
 
 ## Adding a new service

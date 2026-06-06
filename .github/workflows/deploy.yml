@@ -18,6 +18,13 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
+            #!/bin/bash
+            set -euo pipefail
+
+            if ! command -v podman-compose >/dev/null 2>&1; then
+              apt install -y podman podman-compose
+            fi
+
             if [ ! -d /opt/vps-infra ]; then
               git clone https://github.com/mr-cal/vps-infra.git /opt/vps-infra
             fi
@@ -27,12 +34,12 @@ jobs:
             git submodule update --init --recursive
 
             # Ensure the shared network exists.
-            docker network inspect vps-net >/dev/null 2>&1 || docker network create vps-net
+            podman network inspect vps-net >/dev/null 2>&1 || podman network create vps-net
 
             # Restart Caddy (picks up Caddyfile changes and new static sites).
-            docker compose -f docker-compose.caddy.yml pull
-            docker compose -f docker-compose.caddy.yml up -d --remove-orphans
+            podman-compose -f docker-compose.caddy.yml pull
+            podman-compose -f docker-compose.caddy.yml up -d --remove-orphans
 
             # Restart craft-dashboard (picks up new Docker image).
-            docker compose -f docker-compose.craft-dashboard.yml pull
-            docker compose -f docker-compose.craft-dashboard.yml up -d --remove-orphans
+            podman-compose -f docker-compose.craft-dashboard.yml pull
+            podman-compose -f docker-compose.craft-dashboard.yml up -d --remove-orphans
