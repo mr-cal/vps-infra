@@ -56,7 +56,33 @@ appears in logs, then starts all services.
 4. Add `podman pull` and `podman-compose -f docker-compose.<name>.yml up -d` lines to `deploy.yml`.
 5. Push to `main` — the deploy workflow will start the new service.
 
-## Debugging
+## Rotating the DB password
+
+If you change the `DB_PASSWORD` GitHub secret, the podman secret gets updated
+on the next deploy but postgres won't accept the new password — it was set
+when the data volume was first initialized and is stored there. You need to
+wipe the volume and let postgres reinitialize.
+
+⚠️ This destroys all data. On a live system, use `ALTER USER` instead (see below).
+
+```bash
+# On the VPS — remove containers in dependency order, then wipe the volume:
+podman rm vps-infra_craft-dashboard_1
+podman rm vps-infra_postgres_1
+podman volume rm vps-infra_pgdata
+```
+
+Then retrigger the deploy. Postgres will initialize fresh with the new password.
+
+To change the password without losing data:
+
+```bash
+podman exec -it vps-infra_postgres_1 psql -U craft_dashboard -c \
+  "ALTER USER craft_dashboard WITH PASSWORD 'newpassword';"
+```
+
+Then update `DATABASE_URL` in `/opt/vps-infra/.env` to match.
+
 
 On the VPS:
 
