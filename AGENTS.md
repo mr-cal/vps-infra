@@ -43,14 +43,15 @@ firewall open. If containers are unreachable externally after a reboot, check
 `systemctl status podman-forward-fix.service`. The deploy script also inserts this
 rule after starting containers.
 
-**Netavark "Chain already exists" (Podman 4.9.3 bug)**: When containers are removed
-without the network being properly torn down, Netavark leaves stale iptables chains
-in the kernel. The next `podman run` fails with "iptables: Chain already exists".
-`podman network rm --force` does NOT work here because craft-dashboard uses
-`--requires=postgres`, so Podman refuses to remove postgres while craft-dashboard
-exists, even with `--force`. Remove containers in reverse dependency order first
-(craft-dashboard, caddy, postgres), then `podman network rm vps-net` — Netavark
-will cleanly tear down the chains. Never use `podman stop` + `podman start`.
+**Netavark "Chain already exists" (Podman 4.9.3 bug)**: When a container joins
+`vps-net`, Netavark creates a `NETAVARK_FORWARD` chain in the kernel's ip filter
+table. When the network is removed, Netavark leaves the chain behind. On the next
+deploy, the first container fails to start because Netavark tries to create
+`NETAVARK_FORWARD` and it already exists. Fix: after `podman network rm`, explicitly
+delete the chain with `nft flush chain ip filter NETAVARK_FORWARD && nft delete chain
+ip filter NETAVARK_FORWARD`. Also: craft-dashboard has `--requires=postgres`, so
+containers must be removed in reverse dependency order (craft-dashboard → caddy →
+postgres) before `podman network rm` will succeed. See the restart procedure below.
 
 **Image names must be fully qualified**: `/etc/containers/registries.conf` has no
 unqualified search registries. Always use `docker.io/library/caddy:2-alpine`, not
@@ -72,12 +73,14 @@ curl -s -o /dev/null -w "%{http_code}" \
   https://craft-dashboard.name/
 # Expected: 200
 
-# Restart all services — remove in reverse dependency order (craft-dashboard
-# depends on postgres via --requires, so craft-dashboard must go first).
+# Restart all services — remove in reverse dependency order, delete the
+# stale NETAVARK_FORWARD chain, then recreate network and start containers.
 podman rm -f vps-infra_craft-dashboard_1 2>/dev/null || true
 podman rm -f vps-infra_caddy_1 2>/dev/null || true
 podman rm -f vps-infra_postgres_1 2>/dev/null || true
 podman network rm vps-net 2>/dev/null || true
+nft flush chain ip filter NETAVARK_FORWARD 2>/dev/null || true
+nft delete chain ip filter NETAVARK_FORWARD 2>/dev/null || true
 podman network create vps-net
 cd /opt/vps-infra
 podman-compose -f docker-compose.caddy.yml up -d
