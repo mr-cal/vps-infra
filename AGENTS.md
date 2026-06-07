@@ -65,7 +65,10 @@ podman ps -a --format "{{.Names}} {{.Status}}"
 podman logs -f vps-infra_craft-dashboard_1
 
 # Verify site is up (run this after every change or deployment)
-curl -s -o /dev/null -w "%{http_code}" https://craft-dashboard.name/
+# Use --resolve because connecting to the external IP from the VPS itself times out.
+curl -s -o /dev/null -w "%{http_code}" \
+  --resolve craft-dashboard.name:443:127.0.0.1 \
+  https://craft-dashboard.name/
 # Expected: 200
 
 # Restart all services (use this, not podman stop/start — see Known Quirks)

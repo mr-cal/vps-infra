@@ -65,11 +65,23 @@ jobs:
 
             # Podman's NETAVARK_FORWARD chain is created when the first container
             # starts. Add the missing rule that allows new inbound connections.
-            # The chain exists now, so this is safe to run after containers start.
-            nft insert rule ip filter NETAVARK_FORWARD ip daddr 10.89.0.0/24 ct state new accept 2>/dev/null || true
+            # Use the actual subnet assigned to vps-net (it may change when the
+            # network is recreated).
+            SUBNET=$(podman network inspect vps-net --format '{{range .Subnets}}{{.Subnet}}{{end}}')
+            nft insert rule ip filter NETAVARK_FORWARD ip daddr "$SUBNET" ct state new accept 2>/dev/null || true
 
-            # Verify the site is reachable.
-            sleep 5
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 https://craft-dashboard.name/)
-            echo "Site status: $STATUS"
-            [ "$STATUS" = "200" ] || { echo "ERROR: site returned $STATUS"; exit 1; }
+            # Verify the site is reachable. The check runs on the VPS, so use
+            # --resolve to avoid routing through the external IP (which times out
+            # when connecting to self). Poll up to 60s to allow for DB migrations.
+            echo "Waiting for site to come up..."
+            for i in $(seq 1 12); do
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 \
+                --resolve craft-dashboard.name:443:127.0.0.1 \
+                --resolve craft-dashboard.name:80:127.0.0.1 \
+                https://craft-dashboard.name/ 2>/dev/null || echo "000")
+              echo "  attempt $i: $STATUS"
+              [ "$STATUS" = "200" ] && break
+              sleep 5
+            done
+            [ "$STATUS" = "200" ] || { echo "ERROR: site did not come up (last status: $STATUS)"; exit 1; }
+            echo "Site is up."
