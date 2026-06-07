@@ -43,12 +43,13 @@ firewall open. If containers are unreachable externally after a reboot, check
 `systemctl status podman-forward-fix.service`. The deploy script also inserts this
 rule after starting containers.
 
-**podman stop/start doesn't work**: Due to a Netavark bug in Podman 4.9.3, using
-`podman stop` + `podman start` on containers that share the vps-net network results
-in "iptables: Chain already exists" errors. If containers crash or are killed without
-the network being properly torn down, stale iptables chains persist in the kernel.
-Always use the full restart procedure in "Useful Commands" below: flush nftables
-tables, remove containers, remove+recreate network, podman-compose up.
+**Netavark "Chain already exists" (Podman 4.9.3 bug)**: When containers are removed
+without the network being properly torn down, Netavark leaves stale iptables chains
+in the kernel. The next `podman run` fails with "iptables: Chain already exists".
+`podman network rm --force vps-net` removes the network AND any containers still
+registered to it in Podman's internal state, letting Netavark do its own proper
+cleanup. Never use `podman stop` + `podman start` — always use the full restart
+procedure below.
 
 **Image names must be fully qualified**: `/etc/containers/registries.conf` has no
 unqualified search registries. Always use `docker.io/library/caddy:2-alpine`, not
@@ -68,11 +69,9 @@ curl -s -o /dev/null -w "%{http_code}" https://craft-dashboard.name/
 # Expected: 200
 
 # Restart all services (use this, not podman stop/start — see Known Quirks)
-podman rm -f vps-infra_caddy_1 vps-infra_postgres_1 vps-infra_craft-dashboard_1 2>/dev/null || true
-# Flush stale Netavark iptables chains (required if containers crashed or were killed)
-nft flush table ip filter 2>/dev/null || true
-nft flush table ip nat 2>/dev/null || true
-podman network rm vps-net 2>/dev/null || true
+# --force removes the network AND any containers still registered to it in
+# Podman's state, letting Netavark cleanly tear down its iptables chains.
+podman network rm --force --time 5 vps-net 2>/dev/null || true
 podman network create vps-net
 cd /opt/vps-infra
 podman-compose -f docker-compose.caddy.yml up -d
