@@ -3,6 +3,11 @@
 {
 	# Explicitly use Let's Encrypt production CA.
 	acme_ca https://acme-v02.api.letsencrypt.org/directory
+	# Disable HTTP/3 (QUIC over UDP). The DO firewall only allows TCP 443,
+	# so browsers that try QUIC first will hang on the handshake.
+	servers {
+		protocols h1 h2
+	}
 }
 
 # craft-dashboard — reverse proxy to the FastAPI app
