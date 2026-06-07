@@ -35,13 +35,16 @@ jobs:
             git pull origin main
             git submodule update --init --recursive
 
-            # Recreate the shared network on every deploy. --force removes any
-            # containers still registered to the network in Podman's internal
-            # state, letting Netavark cleanly tear down its iptables chains.
-            # This avoids the Netavark "Chain already exists" bug in Podman 4.9.3
-            # that occurs when containers are removed without the network being
-            # properly torn down.
-            podman network rm --force --time 5 vps-net 2>/dev/null || true
+            # Recreate the shared network on every deploy. Must remove containers
+            # in reverse dependency order first — craft-dashboard has --requires
+            # postgres, so podman network rm --force fails with "has dependent
+            # containers". Remove the dependent first, then the dependency, then
+            # the network. Netavark cleanly tears down its iptables chains on
+            # a proper podman network rm.
+            podman rm -f vps-infra_craft-dashboard_1 2>/dev/null || true
+            podman rm -f vps-infra_caddy_1 2>/dev/null || true
+            podman rm -f vps-infra_postgres_1 2>/dev/null || true
+            podman network rm vps-net 2>/dev/null || true
             podman network create vps-net
 
             # Create or update the DB password podman secret.

@@ -46,10 +46,11 @@ rule after starting containers.
 **Netavark "Chain already exists" (Podman 4.9.3 bug)**: When containers are removed
 without the network being properly torn down, Netavark leaves stale iptables chains
 in the kernel. The next `podman run` fails with "iptables: Chain already exists".
-`podman network rm --force vps-net` removes the network AND any containers still
-registered to it in Podman's internal state, letting Netavark do its own proper
-cleanup. Never use `podman stop` + `podman start` — always use the full restart
-procedure below.
+`podman network rm --force` does NOT work here because craft-dashboard uses
+`--requires=postgres`, so Podman refuses to remove postgres while craft-dashboard
+exists, even with `--force`. Remove containers in reverse dependency order first
+(craft-dashboard, caddy, postgres), then `podman network rm vps-net` — Netavark
+will cleanly tear down the chains. Never use `podman stop` + `podman start`.
 
 **Image names must be fully qualified**: `/etc/containers/registries.conf` has no
 unqualified search registries. Always use `docker.io/library/caddy:2-alpine`, not
@@ -71,15 +72,18 @@ curl -s -o /dev/null -w "%{http_code}" \
   https://craft-dashboard.name/
 # Expected: 200
 
-# Restart all services (use this, not podman stop/start — see Known Quirks)
-# --force removes the network AND any containers still registered to it in
-# Podman's state, letting Netavark cleanly tear down its iptables chains.
-podman network rm --force --time 5 vps-net 2>/dev/null || true
+# Restart all services — remove in reverse dependency order (craft-dashboard
+# depends on postgres via --requires, so craft-dashboard must go first).
+podman rm -f vps-infra_craft-dashboard_1 2>/dev/null || true
+podman rm -f vps-infra_caddy_1 2>/dev/null || true
+podman rm -f vps-infra_postgres_1 2>/dev/null || true
+podman network rm vps-net 2>/dev/null || true
 podman network create vps-net
 cd /opt/vps-infra
 podman-compose -f docker-compose.caddy.yml up -d
 podman-compose -f docker-compose.craft-dashboard.yml up -d
-nft insert rule ip filter NETAVARK_FORWARD ip daddr 10.89.0.0/24 ct state new accept
+SUBNET=$(podman network inspect vps-net --format '{{range .Subnets}}{{.Subnet}}{{end}}')
+nft insert rule ip filter NETAVARK_FORWARD ip daddr "$SUBNET" ct state new accept
 # Verify
 curl -s -o /dev/null -w "%{http_code}" https://craft-dashboard.name/
 ```
