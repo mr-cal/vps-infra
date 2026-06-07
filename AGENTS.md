@@ -1,13 +1,13 @@
-# Agent Notes — vps-infra
+# vps-infra
 
 ## Server
 
-- **IP**: 167.99.14.211
-- **OS**: Ubuntu 22.04
-- **RAM**: 458MB + 1GB swap (`/swapfile`)
-- **Disk**: 8.7GB total, ~3GB free
-- **SSH**: `ssh root@167.99.14.211`
-- **Hosting**: DigitalOcean — firewall managed via cloud console, not UFW
+- IP: ask user
+- SSH: ask user
+- OS: Ubuntu 24.04
+- RAM: 458MB + 1GB swap (`/swapfile`)
+- Disk: 10GB
+- Hosting: DigitalOcean — firewall managed via cloud console, not UFW
 
 ## Architecture
 
@@ -26,7 +26,7 @@ Push to `main` triggers `.github/workflows/deploy.yml` via `appleboy/ssh-action`
 Required GitHub Actions secrets: `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `DB_PASSWORD`.
 
 The DB password is passed as a podman secret (not an env var) so it doesn't appear
-in `podman inspect` output or logs.
+in `podman inspect` output or logs or in CI logs.
 
 ## Known Quirks
 
@@ -40,7 +40,13 @@ check startup success.
 missing nftables rule on boot that allows new inbound connections to reach containers.
 Without it, external traffic to ports 80/443 is silently dropped even with the DO
 firewall open. If containers are unreachable externally after a reboot, check
-`systemctl status podman-forward-fix.service`.
+`systemctl status podman-forward-fix.service`. The deploy script also inserts this
+rule after starting containers.
+
+**podman stop/start doesn't work**: Due to a Netavark bug in Podman 4.9.3, using
+`podman stop` + `podman start` on containers that share the vps-net network results
+in "iptables: Chain already exists" errors. Always use the full restart procedure in
+"Useful Commands" above (remove containers, remove+recreate network, podman-compose up).
 
 **Image names must be fully qualified**: `/etc/containers/registries.conf` has no
 unqualified search registries. Always use `docker.io/library/caddy:2-alpine`, not
@@ -55,10 +61,12 @@ podman ps -a --format "{{.Names}} {{.Status}}"
 # Follow logs
 podman logs -f vps-infra_craft-dashboard_1
 
-# Check memory
-free -m
-
-# Restart a service
+# Restart all services (use this, not podman stop/start — see Known Quirks)
+podman rm -f vps-infra_caddy_1 vps-infra_postgres_1 vps-infra_craft-dashboard_1 2>/dev/null || true
+podman network rm vps-net 2>/dev/null || true
+podman network create vps-net
 cd /opt/vps-infra
+podman-compose -f docker-compose.caddy.yml up -d
 podman-compose -f docker-compose.craft-dashboard.yml up -d
+nft insert rule ip filter NETAVARK_FORWARD ip daddr 10.89.0.0/24 ct state new accept
 ```
