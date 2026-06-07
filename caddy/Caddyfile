@@ -1,5 +1,10 @@
 # Caddy auto-obtains and renews TLS certificates for all listed domains.
 
+{
+	# Explicitly use Let's Encrypt production CA.
+	acme_ca https://acme-v02.api.letsencrypt.org/directory
+}
+
 # craft-dashboard — reverse proxy to the FastAPI app
 craft-dashboard.name {
 	reverse_proxy craft-dashboard:8000
@@ -10,3 +15,4 @@ eggcalculator.com {
 	root * /srv/egg-calculator/src
 	file_server
 }
+
