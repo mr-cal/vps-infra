@@ -37,11 +37,11 @@ jobs:
 
             # Recreate the shared network on every deploy.
             # The root cause of "iptables: Chain already exists": Netavark creates
-            # a NETAVARK_FORWARD chain in the kernel's ip filter table when the
-            # first container joins a network. When the network is removed, Netavark
-            # leaves the chain behind (it won't delete it if it contains foreign
-            # rules). On the next deploy, the first container can't join because
-            # Netavark tries to create NETAVARK_FORWARD and it already exists.
+            # NETAVARK_FORWARD chains in the kernel's ip and ip6 filter tables when
+            # the first container joins a network. When the network is removed,
+            # Netavark leaves the chains behind (it won't delete them if they contain
+            # foreign rules). On the next deploy, the first container can't join
+            # because Netavark tries to create NETAVARK_FORWARD and it already exists.
             #
             # Fix: explicitly delete NETAVARK_FORWARD before recreating the network.
             # Also remove containers in reverse dependency order — craft-dashboard
@@ -53,7 +53,9 @@ jobs:
             podman network rm vps-net 2>/dev/null || true
             nft flush chain ip filter NETAVARK_FORWARD 2>/dev/null || true
             nft delete chain ip filter NETAVARK_FORWARD 2>/dev/null || true
-            podman network create vps-net
+            nft flush chain ip6 filter NETAVARK_FORWARD 2>/dev/null || true
+            nft delete chain ip6 filter NETAVARK_FORWARD 2>/dev/null || true
+            podman network create --ipv6 vps-net
 
             # Create or update the DB password podman secret.
             podman secret rm db_password 2>/dev/null || true
@@ -75,11 +77,13 @@ jobs:
             podman ps --filter name=vps-infra_craft-dashboard_1 --filter status=running --format '{{.Names}}' | grep -q vps-infra_craft-dashboard_1
 
             # Podman's NETAVARK_FORWARD chain is created when the first container
-            # starts. Add the missing rule that allows new inbound connections.
-            # Use the actual subnet assigned to vps-net (it may change when the
+            # starts. Add the missing rules that allow new inbound connections.
+            # Use the actual subnets assigned to vps-net (they may change when the
             # network is recreated).
-            SUBNET=$(podman network inspect vps-net --format '{{range .Subnets}}{{.Subnet}}{{end}}')
+            SUBNET=$(podman network inspect vps-net --format '{{range .Subnets}}{{.Subnet}} {{end}}' | tr ' ' '\n' | grep -v ':' | head -1)
+            IPV6_SUBNET=$(podman network inspect vps-net --format '{{range .Subnets}}{{.Subnet}} {{end}}' | tr ' ' '\n' | grep ':' | head -1)
             nft insert rule ip filter NETAVARK_FORWARD ip daddr "$SUBNET" ct state new accept 2>/dev/null || true
+            nft insert rule ip6 filter NETAVARK_FORWARD ip6 daddr "$IPV6_SUBNET" ct state new accept 2>/dev/null || true
 
             # Verify the site is reachable. The check runs on the VPS, so use
             # --resolve to avoid routing through the external IP (which times out
