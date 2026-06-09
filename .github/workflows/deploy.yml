@@ -85,12 +85,12 @@ jobs:
             nft insert rule ip filter NETAVARK_FORWARD ip daddr "$SUBNET" ct state new accept 2>/dev/null || true
             nft insert rule ip6 filter NETAVARK_FORWARD ip6 daddr "$IPV6_SUBNET" ct state new accept 2>/dev/null || true
 
-            # Verify the site is reachable. The check runs on the VPS, so use
-            # --resolve to avoid routing through the external IP (which times out
-            # when connecting to self). Poll up to 60s to allow for DB migrations.
-            echo "Waiting for site to come up..."
+            # Verify IPv4 reachability. The check runs on the VPS, so use --resolve
+            # to avoid routing through the external IP (which times out when
+            # connecting to self). Poll up to 60s to allow for DB migrations.
+            echo "Waiting for site to come up (IPv4)..."
             for i in $(seq 1 12); do
-              STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 \
+              STATUS=$(curl -4 -s -o /dev/null -w "%{http_code}" --max-time 10 \
                 --resolve craft-dashboard.name:443:127.0.0.1 \
                 --resolve craft-dashboard.name:80:127.0.0.1 \
                 https://craft-dashboard.name/ 2>/dev/null || echo "000")
@@ -98,5 +98,15 @@ jobs:
               [ "$STATUS" = "200" ] && break
               sleep 5
             done
-            [ "$STATUS" = "200" ] || { echo "ERROR: site did not come up (last status: $STATUS)"; exit 1; }
-            echo "Site is up."
+            [ "$STATUS" = "200" ] || { echo "ERROR: site did not come up on IPv4 (last status: $STATUS)"; exit 1; }
+            echo "Site is up on IPv4."
+
+            # Verify IPv6 reachability using the server's public IPv6 address.
+            IPV6_ADDR=$(ip -6 addr show eth0 scope global | awk '/inet6/{print $2}' | cut -d/ -f1 | head -1)
+            echo "Checking IPv6 reachability via $IPV6_ADDR..."
+            STATUS6=$(curl -6 -s -o /dev/null -w "%{http_code}" --max-time 10 \
+              --resolve "craft-dashboard.name:443:[$IPV6_ADDR]" \
+              https://craft-dashboard.name/ 2>/dev/null || echo "000")
+            echo "  IPv6 status: $STATUS6"
+            [ "$STATUS6" = "200" ] || { echo "ERROR: site did not come up on IPv6 (status: $STATUS6)"; exit 1; }
+            echo "Site is up on IPv6."
