@@ -98,6 +98,25 @@ jobs:
             nft insert rule ip filter NETAVARK_FORWARD ip daddr "$SUBNET" ct state new accept 2>/dev/null || true
             nft insert rule ip6 filter NETAVARK_FORWARD ip6 daddr "$IPV6_SUBNET" ct state new accept 2>/dev/null || true
 
+            # Fix netavark's broken IPv6 DNAT rules. Netavark generates rules with
+            # 'ip6 daddr ::' (the unspecified address), which never matches real traffic.
+            # Add correct rules without a destination constraint to both:
+            #   PREROUTING: for inbound traffic from external IPv6 clients
+            #   OUTPUT: for traffic originating from the VPS itself (the deploy health check)
+            # Use a comment tag to safely delete stale rules from previous deploys before
+            # inserting fresh ones pointing at the current container's IPv6 address.
+            CADDY_IPV6=$(podman inspect vps-infra_caddy_1 \
+              --format '{{range .NetworkSettings.Networks}}{{.GlobalIPv6Address}}{{end}}')
+            for CHAIN in PREROUTING OUTPUT; do
+              for PORT in 80 443; do
+                while ip6tables -t nat -D "$CHAIN" -p tcp --dport "$PORT" \
+                    -m comment --comment "vps-infra-ipv6-dnat" -j DNAT 2>/dev/null; do true; done
+                ip6tables -t nat -I "$CHAIN" 1 -p tcp --dport "$PORT" \
+                  -m comment --comment "vps-infra-ipv6-dnat" \
+                  -j DNAT --to-destination ["$CADDY_IPV6"]:"$PORT"
+              done
+            done
+
             # Verify IPv4 reachability. The check runs on the VPS, so use --resolve
             # to avoid routing through the external IP (which times out when
             # connecting to self). Poll up to 60s to allow for DB migrations.
