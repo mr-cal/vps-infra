@@ -66,7 +66,20 @@ jobs:
             podman pull docker.io/pgvector/pgvector:pg16
             podman pull ghcr.io/mr-cal/craft-dashboard:latest
 
+            # Log pulled image details for traceability.
+            echo "=== Image details ==="
+            podman image inspect docker.io/library/caddy:2-alpine \
+              --format 'caddy:        digest={{.Digest}} created={{index .Labels "org.opencontainers.image.created"}}'
+            podman image inspect docker.io/pgvector/pgvector:pg16 \
+              --format 'pgvector:     digest={{.Digest}} created={{index .Labels "org.opencontainers.image.created"}}'
+            podman image inspect ghcr.io/mr-cal/craft-dashboard:latest \
+              --format 'craft-dashboard: digest={{.Digest}} created={{index .Labels "org.opencontainers.image.created"}} revision={{index .Labels "org.opencontainers.image.revision"}}'
+
             # Restart services.
+            # Note: podman-compose will emit "no such container" errors for stop/rm
+            # when containers were already removed above. This is expected — podman-compose
+            # tries to recreate containers whose config hash changed and errors on the
+            # stop/rm of already-removed containers before successfully creating new ones.
             podman-compose -f docker-compose.caddy.yml up -d
             podman-compose -f docker-compose.craft-dashboard.yml up -d
 
