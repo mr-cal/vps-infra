@@ -1,0 +1,13 @@
+[Unit]
+Description=Start VPS infrastructure containers (Caddy, PostgreSQL, craft-dashboard)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/vps-infra-startup.sh
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target

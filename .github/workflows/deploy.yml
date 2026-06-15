@@ -35,6 +35,12 @@ jobs:
             git pull origin main
             git submodule update --init --recursive
 
+            # Install/update the startup service so the site survives reboots.
+            install -m 0755 systemd/vps-infra-startup.sh /usr/local/sbin/vps-infra-startup.sh
+            install -m 0644 systemd/vps-infra-startup.service /etc/systemd/system/vps-infra-startup.service
+            systemctl daemon-reload
+            systemctl enable vps-infra-startup.service
+
             # Recreate the shared network on every deploy.
             # The root cause of "iptables: Chain already exists": Netavark creates
             # NETAVARK_FORWARD chains in the kernel's ip and ip6 filter tables when
