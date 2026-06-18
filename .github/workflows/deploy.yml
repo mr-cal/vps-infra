@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  repository_dispatch:
+    types: [pcbisolation-updated]
 
 jobs:
   deploy:
@@ -15,11 +17,16 @@ jobs:
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         env:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          REMARK_SECRET: ${{ secrets.REMARK_SECRET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          AKISMET_KEY: ${{ secrets.AKISMET_KEY }}
+          REMARK_ADMIN_PASSWD: ${{ secrets.REMARK_ADMIN_PASSWD }}
+          REMARK_ADMIN_EMAIL: ${{ secrets.REMARK_ADMIN_EMAIL }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          envs: DB_PASSWORD
+          envs: DB_PASSWORD,REMARK_SECRET,RESEND_API_KEY,AKISMET_KEY,REMARK_ADMIN_PASSWD,REMARK_ADMIN_EMAIL
           script: |
             set -euo pipefail
 
@@ -89,11 +96,22 @@ jobs:
             podman-compose -f docker-compose.caddy.yml up -d
             podman-compose -f docker-compose.craft-dashboard.yml up -d
 
+            # Start Remark42 with secrets substituted at deploy time.
+            sed \
+              -e "s/REPLACE_WITH_OPENSSL_OUTPUT/$REMARK_SECRET/" \
+              -e "s/REPLACE_WITH_RESEND_API_KEY/$RESEND_API_KEY/" \
+              -e "s/REPLACE_WITH_AKISMET_KEY/$AKISMET_KEY/" \
+              -e "s/REPLACE_WITH_ADMIN_PASSWORD/$REMARK_ADMIN_PASSWD/" \
+              -e "s/REPLACE_WITH_ADMIN_EMAIL/$REMARK_ADMIN_EMAIL/" \
+              docker-compose.remark42.yml > /tmp/docker-compose.remark42.rendered.yml
+            podman-compose -f /tmp/docker-compose.remark42.rendered.yml up -d
+
             # Verify containers are running — podman-compose swallows up exit codes
             # and podman wait exits 0 regardless of the container exit code.
             podman ps --filter name=vps-infra_caddy_1 --filter status=running --format '{{.Names}}' | grep -q vps-infra_caddy_1
             podman ps --filter name=vps-infra_postgres_1 --filter status=running --format '{{.Names}}' | grep -q vps-infra_postgres_1
             podman ps --filter name=vps-infra_craft-dashboard_1 --filter status=running --format '{{.Names}}' | grep -q vps-infra_craft-dashboard_1
+            podman ps --filter name=vps-infra_remark42_1 --filter status=running --format '{{.Names}}' | grep -q vps-infra_remark42_1
 
             # Podman's NETAVARK_FORWARD chain is created when the first container
             # starts. Add the missing rules that allow new inbound connections.
@@ -156,3 +174,19 @@ jobs:
             echo "eggcalculator.com status: $EGG_STATUS"
             [ "$EGG_STATUS" = "200" ] || { echo "ERROR: eggcalculator.com did not come up (status: $EGG_STATUS)"; exit 1; }
             echo "eggcalculator.com is up."
+
+            # Verify pcbisolation.com (Hugo static site).
+            PCB_STATUS=$(curl -4 -s -o /dev/null -w "%{http_code}" --max-time 10 \
+              --resolve pcbisolation.com:443:127.0.0.1 \
+              https://pcbisolation.com/ 2>/dev/null)
+            echo "pcbisolation.com status: $PCB_STATUS"
+            [ "$PCB_STATUS" = "200" ] || { echo "ERROR: pcbisolation.com did not come up (status: $PCB_STATUS)"; exit 1; }
+            echo "pcbisolation.com is up."
+
+            # Verify comments.pcbisolation.com (Remark42).
+            REMARK_STATUS=$(curl -4 -s -o /dev/null -w "%{http_code}" --max-time 10 \
+              --resolve comments.pcbisolation.com:443:127.0.0.1 \
+              https://comments.pcbisolation.com/api/v1/ping 2>/dev/null)
+            echo "comments.pcbisolation.com status: $REMARK_STATUS"
+            [ "$REMARK_STATUS" = "200" ] || { echo "ERROR: Remark42 did not come up (status: $REMARK_STATUS)"; exit 1; }
+            echo "comments.pcbisolation.com is up."

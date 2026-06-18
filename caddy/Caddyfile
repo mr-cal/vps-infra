@@ -21,3 +21,19 @@ www.eggcalculator.com {
 	redir https://eggcalculator.com{uri} permanent
 }
 
+# pcbisolation — Hugo static site
+pcbisolation.com {
+	root * /srv/pcbisolation
+	file_server
+}
+
+# Redirect www to apex
+www.pcbisolation.com {
+	redir https://pcbisolation.com{uri} permanent
+}
+
+# Remark42 self-hosted comments
+comments.pcbisolation.com {
+	reverse_proxy vps-infra_remark42_1:8080
+}
+

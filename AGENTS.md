@@ -15,11 +15,14 @@ Two podman-compose stacks sharing a `vps-net` bridge network:
 
 - `docker-compose.caddy.yml` — Caddy reverse proxy, handles TLS automatically
 - `docker-compose.craft-dashboard.yml` — FastAPI app + PostgreSQL (pgvector)
+- `docker-compose.remark42.yml` — Remark42 self-hosted comment system
 
 Sites served:
 
 - `craft-dashboard.name` — reverse proxy to the FastAPI app
 - `eggcalculator.com` — static site from the `static-sites/egg-calculator` git submodule
+- `pcbisolation.com` — Hugo static site from `static-sites/pcbisolation` git submodule (built from `mr-cal/pcbisolation` `main`, published to `gh-pages`)
+- `comments.pcbisolation.com` — Remark42 self-hosted comment system (`docker-compose.remark42.yml`), data persisted in `remark42_data` volume; admin UI at `/web`
 
 Both stacks use project name `vps-infra` (inferred from `/opt/vps-infra`). Never use
 `--remove-orphans` — it will remove containers from the other stack.

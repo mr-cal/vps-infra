@@ -8,7 +8,8 @@ Podman Compose setup for a DigitalOcean VPS running multiple websites behind Cad
 Internet ──► Caddy (ports 80/443, auto-TLS)
                ├──► craft-dashboard:8000 (FastAPI/Gunicorn)
                ├──► /srv/egg-calculator (static file_server, eggcalculator.com)
-               └──► (more services as needed)
+               ├──► /srv/pcbisolation (static file_server, pcbisolation.com)
+               └──► vps-infra_remark42_1:8080 (comments.pcbisolation.com)
 ```
 
 Services are split into separate Compose files joined by a shared podman
@@ -17,8 +18,9 @@ independently.
 
 | Compose file | Services |
 |---|---|
-| `docker-compose.caddy.yml` | Caddy reverse proxy, static sites |
+| `docker-compose.caddy.yml` | Caddy reverse proxy, static sites (eggcalculator.com, pcbisolation.com) |
 | `docker-compose.craft-dashboard.yml` | craft-dashboard app, PostgreSQL |
+| `docker-compose.remark42.yml` | Remark42 self-hosted comments (comments.pcbisolation.com) |
 
 ## First-time VPS setup
 
