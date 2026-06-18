@@ -1,3 +1,5 @@
 .env
 backups/*.gz
 backups/*.sql
+
+plans/
