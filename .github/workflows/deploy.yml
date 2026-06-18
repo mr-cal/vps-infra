@@ -131,7 +131,7 @@ jobs:
               STATUS=$(curl -4 -s -o /dev/null -w "%{http_code}" --max-time 10 \
                 --resolve craft-dashboard.name:443:127.0.0.1 \
                 --resolve craft-dashboard.name:80:127.0.0.1 \
-                https://craft-dashboard.name/ 2>/dev/null || echo "000")
+                https://craft-dashboard.name/ 2>/dev/null)
               echo "  attempt $i: $STATUS"
               [ "$STATUS" = "200" ] && break
               sleep 5
@@ -144,7 +144,7 @@ jobs:
             echo "Checking IPv6 reachability via $IPV6_ADDR..."
             STATUS6=$(curl -6 -s -o /dev/null -w "%{http_code}" --max-time 10 \
               --resolve "craft-dashboard.name:443:[$IPV6_ADDR]" \
-              https://craft-dashboard.name/ 2>/dev/null || echo "000")
+              https://craft-dashboard.name/ 2>/dev/null)
             echo "  IPv6 status: $STATUS6"
             [ "$STATUS6" = "200" ] || { echo "ERROR: craft-dashboard did not come up on IPv6 (status: $STATUS6)"; exit 1; }
             echo "craft-dashboard is up on IPv6."
@@ -152,7 +152,7 @@ jobs:
             # Verify eggcalculator.com (static site served by Caddy).
             EGG_STATUS=$(curl -4 -s -o /dev/null -w "%{http_code}" --max-time 10 \
               --resolve eggcalculator.com:443:127.0.0.1 \
-              https://eggcalculator.com/ 2>/dev/null || echo "000")
+              https://eggcalculator.com/ 2>/dev/null)
             echo "eggcalculator.com status: $EGG_STATUS"
             [ "$EGG_STATUS" = "200" ] || { echo "ERROR: eggcalculator.com did not come up (status: $EGG_STATUS)"; exit 1; }
             echo "eggcalculator.com is up."
