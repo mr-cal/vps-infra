@@ -46,9 +46,9 @@ services. The only manual steps are:
 
 | Secret | Value | Required permissions |
 |---|---|---|
-| `VPSINFRA_PAT` | Fine-grained PAT scoped to `mr-cal/vps-infra` | Contents: Read and write |
+| `VPSINFRA_PAT` | Fine-grained PAT scoped to `mr-cal/vps-infra` | Actions: Read and write |
 
-The `VPSINFRA_PAT` is used by the pcbisolation CI to trigger a `repository_dispatch` event that redeploys this repo after the static site is updated. Create it at https://github.com/settings/personal-access-tokens/new with **Repository access → Only select repositories → mr-cal/vps-infra** and **Permissions → Repository permissions → Contents → Read and write**.
+The `VPSINFRA_PAT` is used by the pcbisolation CI to trigger a `repository_dispatch` event that redeploys this repo after the static site is updated. Create it at https://github.com/settings/personal-access-tokens/new with **Repository access → Only select repositories → mr-cal/vps-infra** and **Permissions → Repository permissions → Actions → Read and write**.
 
 **2. Create the env file on the VPS:**
 
