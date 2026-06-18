@@ -36,6 +36,19 @@ services. The only manual steps are:
 | `VPS_USER` | SSH username |
 | `VPS_SSH_KEY` | Private SSH key for the deploy user |
 | `DB_PASSWORD` | Strong password for the PostgreSQL database |
+| `REMARK_SECRET` | Random secret for Remark42 JWT signing (`openssl rand -hex 32`) |
+| `AKISMET_KEY` | Akismet API key for comment spam filtering |
+| `REMARK_ADMIN_PASSWD` | Remark42 admin password |
+| `REMARK_ADMIN_EMAIL` | Remark42 admin email address |
+| `RESEND_API_KEY` | Resend API key for Remark42 email notifications |
+
+**Also add to `mr-cal/pcbisolation`** (Settings → Secrets and variables → Actions):
+
+| Secret | Value | Required permissions |
+|---|---|---|
+| `VPSINFRA_PAT` | Fine-grained PAT scoped to `mr-cal/vps-infra` | Contents: Read and write |
+
+The `VPSINFRA_PAT` is used by the pcbisolation CI to trigger a `repository_dispatch` event that redeploys this repo after the static site is updated. Create it at https://github.com/settings/personal-access-tokens/new with **Repository access → Only select repositories → mr-cal/vps-infra** and **Permissions → Repository permissions → Contents → Read and write**.
 
 **2. Create the env file on the VPS:**
 
