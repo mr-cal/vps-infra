@@ -1,3 +1,7 @@
 [submodule "static-sites/egg-calculator"]
 	path = static-sites/egg-calculator
 	url = https://github.com/mr-cal/egg-calculator.git
+[submodule "static-sites/pcbisolation"]
+	path = static-sites/pcbisolation
+	url = https://github.com/mr-cal/pcbisolation.git
+	branch = gh-pages
