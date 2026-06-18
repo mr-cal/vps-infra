@@ -1,0 +1,38 @@
+# docker-compose.remark42.yml — Remark42 self-hosted comments
+# Project: vps-infra (same as other stacks — shares vps-net)
+services:
+  remark42:
+    image: docker.io/umputun/remark42:master
+    container_name: vps-infra_remark42_1
+    restart: always
+    networks:
+      - vps-net
+    volumes:
+      - remark42_data:/srv/var
+    environment:
+      - REMARK_URL=https://comments.pcbisolation.com
+      - SECRET=REPLACE_WITH_OPENSSL_OUTPUT
+      - SITE=pcbisolation
+      - ALLOWED_ORIGINS=https://pcbisolation.com
+      - AUTH_ANON=true
+      - AUTH_EMAIL_ENABLE=true
+      - AUTH_EMAIL_FROM=noreply@pcbisolation.com
+      - ADMIN_SHARED_EMAIL=REPLACE_WITH_ADMIN_EMAIL
+      - NOTIFY_TYPE=email
+      - NOTIFY_EMAIL_FROM=noreply@pcbisolation.com
+      - SMTP_HOST=smtp.resend.com
+      - SMTP_PORT=465
+      - SMTP_TLS=true
+      - SMTP_USERNAME=resend
+      - SMTP_PASSWORD=REPLACE_WITH_RESEND_API_KEY
+      - AKISMET_KEY=REPLACE_WITH_AKISMET_KEY
+      - ADMIN_PASSWD=REPLACE_WITH_ADMIN_PASSWORD
+    expose:
+      - "8080"
+
+volumes:
+  remark42_data:
+
+networks:
+  vps-net:
+    external: true
