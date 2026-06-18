@@ -177,16 +177,20 @@ jobs:
             echo "eggcalculator.com is up."
 
             # Verify pcbisolation.com (Hugo static site).
+            # --insecure: Caddy uses a self-signed cert until DNS is cut over to this VPS.
             PCB_STATUS=$(curl -4 -s -o /dev/null -w "%{http_code}" --max-time 10 \
               --resolve pcbisolation.com:443:127.0.0.1 \
+              --insecure \
               https://pcbisolation.com/ 2>/dev/null)
             echo "pcbisolation.com status: $PCB_STATUS"
             [ "$PCB_STATUS" = "200" ] || { echo "ERROR: pcbisolation.com did not come up (status: $PCB_STATUS)"; exit 1; }
             echo "pcbisolation.com is up."
 
             # Verify comments.pcbisolation.com (Remark42).
+            # --insecure: same pre-DNS-cutover self-signed cert caveat as above.
             REMARK_STATUS=$(curl -4 -s -o /dev/null -w "%{http_code}" --max-time 10 \
               --resolve comments.pcbisolation.com:443:127.0.0.1 \
+              --insecure \
               https://comments.pcbisolation.com/api/v1/ping 2>/dev/null)
             echo "comments.pcbisolation.com status: $REMARK_STATUS"
             [ "$REMARK_STATUS" = "200" ] || { echo "ERROR: Remark42 did not come up (status: $REMARK_STATUS)"; exit 1; }
