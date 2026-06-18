@@ -61,6 +61,7 @@ jobs:
             # has --requires=postgres, so Podman won't remove postgres while
             # craft-dashboard exists, even with --force.
             podman rm -f vps-infra_craft-dashboard_1 2>/dev/null || true
+            podman rm -f vps-infra_remark42_1 2>/dev/null || true
             podman rm -f vps-infra_caddy_1 2>/dev/null || true
             podman rm -f vps-infra_postgres_1 2>/dev/null || true
             podman network rm vps-net 2>/dev/null || true
