@@ -126,7 +126,7 @@ jobs:
             # Verify IPv4 reachability. The check runs on the VPS, so use --resolve
             # to avoid routing through the external IP (which times out when
             # connecting to self). Poll up to 60s to allow for DB migrations.
-            echo "Waiting for site to come up (IPv4)..."
+            echo "Waiting for craft-dashboard to come up (IPv4)..."
             for i in $(seq 1 12); do
               STATUS=$(curl -4 -s -o /dev/null -w "%{http_code}" --max-time 10 \
                 --resolve craft-dashboard.name:443:127.0.0.1 \
@@ -136,8 +136,8 @@ jobs:
               [ "$STATUS" = "200" ] && break
               sleep 5
             done
-            [ "$STATUS" = "200" ] || { echo "ERROR: site did not come up on IPv4 (last status: $STATUS)"; exit 1; }
-            echo "Site is up on IPv4."
+            [ "$STATUS" = "200" ] || { echo "ERROR: craft-dashboard did not come up on IPv4 (last status: $STATUS)"; exit 1; }
+            echo "craft-dashboard is up on IPv4."
 
             # Verify IPv6 reachability using the server's public IPv6 address.
             IPV6_ADDR=$(ip -6 addr show eth0 scope global | awk '/inet6/{print $2}' | cut -d/ -f1 | head -1)
@@ -146,5 +146,13 @@ jobs:
               --resolve "craft-dashboard.name:443:[$IPV6_ADDR]" \
               https://craft-dashboard.name/ 2>/dev/null || echo "000")
             echo "  IPv6 status: $STATUS6"
-            [ "$STATUS6" = "200" ] || { echo "ERROR: site did not come up on IPv6 (status: $STATUS6)"; exit 1; }
-            echo "Site is up on IPv6."
+            [ "$STATUS6" = "200" ] || { echo "ERROR: craft-dashboard did not come up on IPv6 (status: $STATUS6)"; exit 1; }
+            echo "craft-dashboard is up on IPv6."
+
+            # Verify eggcalculator.com (static site served by Caddy).
+            EGG_STATUS=$(curl -4 -s -o /dev/null -w "%{http_code}" --max-time 10 \
+              --resolve eggcalculator.com:443:127.0.0.1 \
+              https://eggcalculator.com/ 2>/dev/null || echo "000")
+            echo "eggcalculator.com status: $EGG_STATUS"
+            [ "$EGG_STATUS" = "200" ] || { echo "ERROR: eggcalculator.com did not come up (status: $EGG_STATUS)"; exit 1; }
+            echo "eggcalculator.com is up."

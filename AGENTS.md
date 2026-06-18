@@ -16,6 +16,11 @@ Two podman-compose stacks sharing a `vps-net` bridge network:
 - `docker-compose.caddy.yml` — Caddy reverse proxy, handles TLS automatically
 - `docker-compose.craft-dashboard.yml` — FastAPI app + PostgreSQL (pgvector)
 
+Sites served:
+
+- `craft-dashboard.name` — reverse proxy to the FastAPI app
+- `eggcalculator.com` — static site from the `static-sites/egg-calculator` git submodule
+
 Both stacks use project name `vps-infra` (inferred from `/opt/vps-infra`). Never use
 `--remove-orphans` — it will remove containers from the other stack.
 
@@ -80,6 +85,10 @@ curl -s -o /dev/null -w "%{http_code}" \
   --resolve craft-dashboard.name:443:127.0.0.1 \
   https://craft-dashboard.name/
 # Expected: 200
+curl -s -o /dev/null -w "%{http_code}" \
+  --resolve eggcalculator.com:443:127.0.0.1 \
+  https://eggcalculator.com/
+# Expected: 200
 
 # Restart all services — remove in reverse dependency order, delete the
 # stale NETAVARK_FORWARD chains (ip and ip6), then recreate network and start containers.
@@ -101,4 +110,5 @@ nft insert rule ip filter NETAVARK_FORWARD ip daddr "$SUBNET" ct state new accep
 nft insert rule ip6 filter NETAVARK_FORWARD ip6 daddr "$IPV6_SUBNET" ct state new accept
 # Verify
 curl -s -o /dev/null -w "%{http_code}" https://craft-dashboard.name/
+curl -s -o /dev/null -w "%{http_code}" https://eggcalculator.com/
 ```

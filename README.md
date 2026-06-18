@@ -1,13 +1,13 @@
 # VPS Infrastructure
 
-Podman Compose setup for a Linode VPS running multiple websites behind Caddy.
+Podman Compose setup for a DigitalOcean VPS running multiple websites behind Caddy.
 
 ## Architecture
 
 ```
 Internet ──► Caddy (ports 80/443, auto-TLS)
                ├──► craft-dashboard:8000 (FastAPI/Gunicorn)
-               ├──► /srv/egg-calculator (static file_server)
+               ├──► /srv/egg-calculator (static file_server, eggcalculator.com)
                └──► (more services as needed)
 ```
 

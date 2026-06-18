@@ -16,3 +16,8 @@ eggcalculator.com {
 	file_server
 }
 
+# Redirect www to apex
+www.eggcalculator.com {
+	redir https://eggcalculator.com{uri} permanent
+}
+
