@@ -5,7 +5,7 @@ on:
     branches: [main]
   workflow_dispatch:
   repository_dispatch:
-    types: [pcbisolation-updated]
+    types: [pcbisolation-updated, craft-dashboard-updated, egg-calculator-updated]
 
 jobs:
   deploy:
@@ -40,7 +40,7 @@ jobs:
 
             cd /opt/vps-infra
             git pull origin main
-            git submodule update --init --recursive
+            git submodule update --remote --init --recursive
 
             # Install/update the startup service so the site survives reboots.
             install -m 0755 systemd/vps-infra-startup.sh /usr/local/sbin/vps-infra-startup.sh
