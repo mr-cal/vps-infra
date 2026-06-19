@@ -39,13 +39,12 @@ jobs:
             fi
 
             cd /opt/vps-infra
-            git pull origin main
-            # The stale rebase-merge dir from a previously interrupted submodule
-            # update lives in .git/modules/, not the submodule worktree, so
-            # 'git rebase --abort' inside foreach doesn't reach it. Remove directly,
-            # then use --checkout to skip rebase entirely.
+            # The server has submodule.recurse=true globally, so git pull also
+            # updates submodules — before any cleanup can run. Clean stale
+            # rebase dirs first, then pull without recurse, then update explicitly.
             find .git/modules -name 'rebase-merge' -type d -exec rm -rf {} + 2>/dev/null || true
             find .git/modules -name 'rebase-apply' -type d -exec rm -rf {} + 2>/dev/null || true
+            git pull --no-recurse-submodules origin main
             git submodule update --checkout --remote --init --recursive
 
             # Install/update the startup service so the site survives reboots.
