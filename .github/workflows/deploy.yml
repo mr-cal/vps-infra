@@ -40,12 +40,13 @@ jobs:
 
             cd /opt/vps-infra
             git pull origin main
-            # Reset any conflicted submodule state (e.g. from force-pushed gh-pages).
-            # Abort any in-progress rebase/merge before resetting — a stale
-            # rebase-merge dir causes 'git reset --hard' to fail with exit 128.
-            git submodule foreach --recursive \
-              'git rebase --abort 2>/dev/null || true; git merge --abort 2>/dev/null || true; git reset --hard HEAD; git clean -fdx'
-            git submodule update --remote --init --recursive
+            # The stale rebase-merge dir from a previously interrupted submodule
+            # update lives in .git/modules/, not the submodule worktree, so
+            # 'git rebase --abort' inside foreach doesn't reach it. Remove directly,
+            # then use --checkout to skip rebase entirely.
+            find .git/modules -name 'rebase-merge' -type d -exec rm -rf {} + 2>/dev/null || true
+            find .git/modules -name 'rebase-apply' -type d -exec rm -rf {} + 2>/dev/null || true
+            git submodule update --checkout --remote --init --recursive
 
             # Install/update the startup service so the site survives reboots.
             install -m 0755 systemd/vps-infra-startup.sh /usr/local/sbin/vps-infra-startup.sh
