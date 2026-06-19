@@ -21,15 +21,15 @@ www.eggcalculator.com {
 	redir https://eggcalculator.com{uri} permanent
 }
 
-# pcbisolation — Hugo static site (HTTP only until DNS cutover; change to pcbisolation.com for HTTPS)
-http://pcbisolation.com {
+# pcbisolation — Hugo static site
+pcbisolation.com {
 	root * /srv/pcbisolation
 	file_server
 }
 
-# Redirect www to apex (HTTP only until DNS cutover)
-http://www.pcbisolation.com {
-	redir http://pcbisolation.com{uri} permanent
+# Redirect www to apex
+www.pcbisolation.com {
+	redir https://pcbisolation.com{uri} permanent
 }
 
 # Remark42 self-hosted comments
