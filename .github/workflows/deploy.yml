@@ -40,6 +40,8 @@ jobs:
 
             cd /opt/vps-infra
             git pull origin main
+            # Reset any conflicted submodule state (e.g. from force-pushed gh-pages).
+            git submodule foreach --recursive 'git reset --hard HEAD; git clean -fdx'
             git submodule update --remote --init --recursive
 
             # Install/update the startup service so the site survives reboots.
