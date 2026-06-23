@@ -1,0 +1,2 @@
+# craft-dashboard data collection every 4 hours
+0 */4 * * * root podman exec -i vps-infra_craft-dashboard_1 /app/.venv/bin/python /app/scripts/collect_data.py --source all >> /var/log/collect-data.log 2>&1

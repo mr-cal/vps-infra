@@ -53,6 +53,10 @@ jobs:
             systemctl daemon-reload
             systemctl enable vps-infra-startup.service
 
+            # Install/update cron jobs for craft-dashboard.
+            install -m 0644 cron.d/collect-data /etc/cron.d/collect-data
+            install -m 0644 cron.d/backfill-snapshots /etc/cron.d/backfill-snapshots
+
             # Recreate the shared network on every deploy.
             # The root cause of "iptables: Chain already exists": Netavark creates
             # NETAVARK_FORWARD chains in the kernel's ip and ip6 filter tables when
