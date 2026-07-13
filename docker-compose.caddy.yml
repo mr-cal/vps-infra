@@ -11,6 +11,7 @@ services:
       - "[::]:443:443"
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy/pcbisolation-image-redirects.caddy:/etc/caddy/pcbisolation-image-redirects.caddy:ro
       - caddy_data:/data
       - caddy_config:/config
       - ./static-sites:/srv:ro
