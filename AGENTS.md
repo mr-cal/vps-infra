@@ -2,8 +2,8 @@
 
 ## Server
 
-- IP: ask user
-- SSH: ask user
+- IP: 167.99.14.211 (IPv4), 2604:a880:400:d1:0:4:8a34:b001 (IPv6)
+- SSH: `ssh root@167.99.14.211`
 - OS: Ubuntu 24.04
 - RAM: 458MB + 1GB swap (`/swapfile`)
 - Disk: 10GB
@@ -44,7 +44,38 @@ in `podman inspect` output or logs or in CI logs.
 **podman wait**: `podman wait --condition running` always exits 0. Don't use it to
 check startup success.
 
-**nftables forward rule**: A systemd service (`podman-forward-fix.service`) inserts
+**Remark42 data volume**: The rendered compose file is at `/tmp/docker-compose.remark42.rendered.yml`
+(written by the deploy script). Because podman-compose 1.0.6 derives the project name from
+the compose file's directory, this creates the volume `tmp_remark42_data` (project=`tmp`).
+This is the production data volume. Do not confuse it with `vps-infra_remark42_data` (unused).
+
+**Remark42 NOTIFY_TYPE**: When disabling notifications, set `NOTIFY_TYPE=none` not `NOTIFY_TYPE=`
+(empty string). Remark42 rejects empty strings; valid values are `none`, `telegram`, `email`, `slack`.
+
+**Restarting a single container without removing the network** (e.g., Remark42 restart to
+change env vars): You cannot simply `podman rm -f` + re-run because Netavark will hit
+"Chain already exists". Instead: flush+delete the nft chains (this briefly interrupts
+existing container networking), then use `podman start` on the pre-created container:
+```bash
+# Edit /tmp/docker-compose.remark42.no-notify.yml with the desired env, then:
+podman rm -f vps-infra_remark42_1
+cd /opt/vps-infra
+podman-compose -f /tmp/docker-compose.remark42.no-notify.yml up -d 2>/dev/null || true
+# Container will be in "Created" state. Fix nft:
+nft flush chain ip filter NETAVARK_FORWARD 2>/dev/null || true
+nft delete chain ip filter NETAVARK_FORWARD 2>/dev/null || true
+nft flush chain ip6 filter NETAVARK_FORWARD 2>/dev/null || true
+nft delete chain ip6 filter NETAVARK_FORWARD 2>/dev/null || true
+podman start vps-infra_remark42_1
+sleep 5
+# Re-add nft rules:
+SUBNET=$(podman network inspect vps-net --format '{{range .Subnets}}{{.Subnet}} {{end}}' | tr ' ' '\n' | grep -v ':' | head -1)
+IPV6_SUBNET=$(podman network inspect vps-net --format '{{range .Subnets}}{{.Subnet}} {{end}}' | tr ' ' '\n' | grep ':' | head -1)
+nft insert rule ip filter NETAVARK_FORWARD ip daddr "$SUBNET" ct state new accept 2>/dev/null || true
+nft insert rule ip6 filter NETAVARK_FORWARD ip6 daddr "$IPV6_SUBNET" ct state new accept 2>/dev/null || true
+```
+
+ (`podman-forward-fix.service`) inserts
 missing nftables rules on boot that allow new inbound connections to reach containers.
 Without it, external traffic to ports 80/443 is silently dropped even with the DO
 firewall open. If containers are unreachable externally after a reboot, check
@@ -96,6 +127,7 @@ curl -s -o /dev/null -w "%{http_code}" \
 # Restart all services — remove in reverse dependency order, delete the
 # stale NETAVARK_FORWARD chains (ip and ip6), then recreate network and start containers.
 podman rm -f vps-infra_craft-dashboard_1 2>/dev/null || true
+podman rm -f vps-infra_remark42_1 2>/dev/null || true
 podman rm -f vps-infra_caddy_1 2>/dev/null || true
 podman rm -f vps-infra_postgres_1 2>/dev/null || true
 podman network rm vps-net 2>/dev/null || true
@@ -107,6 +139,7 @@ podman network create --ipv6 vps-net
 cd /opt/vps-infra
 podman-compose -f docker-compose.caddy.yml up -d
 podman-compose -f docker-compose.craft-dashboard.yml up -d
+podman-compose -f /tmp/docker-compose.remark42.rendered.yml up -d
 SUBNET=$(podman network inspect vps-net --format '{{range .Subnets}}{{.Subnet}} {{end}}' | tr ' ' '\n' | grep -v ':' | head -1)
 IPV6_SUBNET=$(podman network inspect vps-net --format '{{range .Subnets}}{{.Subnet}} {{end}}' | tr ' ' '\n' | grep ':' | head -1)
 nft insert rule ip filter NETAVARK_FORWARD ip daddr "$SUBNET" ct state new accept
