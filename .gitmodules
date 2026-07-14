@@ -6,3 +6,7 @@
 	path = static-sites/pcbisolation
 	url = https://github.com/mr-cal/pcbisolation.git
 	branch = gh-pages
+[submodule "static-sites/flashcandy"]
+	path = static-sites/flashcandy
+	url = https://github.com/mr-cal/flashcandy.git
+	branch = main

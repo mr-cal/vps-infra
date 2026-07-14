@@ -22,6 +22,7 @@ Sites served:
 - `craft-dashboard.name` — reverse proxy to the FastAPI app
 - `eggcalculator.com` — static site from the `static-sites/egg-calculator` git submodule
 - `pcbisolation.com` — Hugo static site from `static-sites/pcbisolation` git submodule (built from `mr-cal/pcbisolation` `main`, published to `gh-pages`)
+- `flashcandy.us` — static site from the `static-sites/flashcandy` git submodule (migrated from cPanel; DNS not yet cut over — see `mr-cal/flashcandy/plans/`)
 - `comments.pcbisolation.com` — Remark42 self-hosted comment system (`docker-compose.remark42.yml`), data persisted in `remark42_data` volume; admin UI at `/web`
 
 Both stacks use project name `vps-infra` (inferred from `/opt/vps-infra`). Never use

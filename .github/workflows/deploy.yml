@@ -5,7 +5,7 @@ on:
     branches: [main]
   workflow_dispatch:
   repository_dispatch:
-    types: [pcbisolation-updated, craft-dashboard-updated, egg-calculator-updated]
+    types: [pcbisolation-updated, craft-dashboard-updated, egg-calculator-updated, flashcandy-updated]
 
 jobs:
   deploy:
@@ -205,3 +205,13 @@ jobs:
             [[ "$REMARK_STATUS" = "200" || "$REMARK_STATUS" = "301" || "$REMARK_STATUS" = "308" ]] || \
               { echo "ERROR: Remark42 did not come up (status: $REMARK_STATUS)"; exit 1; }
             echo "comments.pcbisolation.com is up."
+
+            # Verify flashcandy.us (static site served by Caddy) — same pre-DNS caveat
+            # as pcbisolation.com above (DNS still points at the old cPanel host).
+            FLASHCANDY_STATUS=$(curl -4 -s -o /dev/null -w "%{http_code}" --max-time 10 \
+              --resolve flashcandy.us:80:127.0.0.1 \
+              http://flashcandy.us/ 2>/dev/null)
+            echo "flashcandy.us status: $FLASHCANDY_STATUS"
+            [[ "$FLASHCANDY_STATUS" = "200" || "$FLASHCANDY_STATUS" = "301" || "$FLASHCANDY_STATUS" = "308" ]] || \
+              { echo "ERROR: flashcandy.us did not come up (status: $FLASHCANDY_STATUS)"; exit 1; }
+            echo "flashcandy.us is up."

@@ -21,6 +21,17 @@ www.eggcalculator.com {
 	redir https://eggcalculator.com{uri} permanent
 }
 
+# flashcandy — static site served from the git submodule
+flashcandy.us {
+	root * /srv/flashcandy/public
+	file_server
+}
+
+# Redirect www to apex
+www.flashcandy.us {
+	redir https://flashcandy.us{uri} permanent
+}
+
 # pcbisolation — Hugo static site
 pcbisolation.com {
 	root * /srv/pcbisolation
