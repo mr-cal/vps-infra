@@ -57,6 +57,11 @@ jobs:
             install -m 0644 cron.d/collect-data /etc/cron.d/collect-data
             install -m 0644 cron.d/backfill-snapshots /etc/cron.d/backfill-snapshots
 
+            # Install/update logrotate policy for the collect-data cron log
+            # (now runs every 10 minutes instead of every 4 hours, so it grows
+            # much faster and needs rotation to avoid filling the disk).
+            install -m 0644 logrotate.d/collect-data /etc/logrotate.d/collect-data
+
             # Recreate the shared network on every deploy.
             # The root cause of "iptables: Chain already exists": Netavark creates
             # NETAVARK_FORWARD chains in the kernel's ip and ip6 filter tables when
