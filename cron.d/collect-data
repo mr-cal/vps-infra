@@ -1,5 +1,5 @@
-# craft-dashboard open-issue refresh every 4 hours
-0 */4 * * * root podman exec -i vps-infra_craft-dashboard_1 /app/.venv/bin/python /app/scripts/collect_data.py --source github --mode open >> /var/log/collect-data.log 2>&1
+# craft-dashboard open-issue and release refresh every 10 minutes
+*/10 * * * * root podman exec -i vps-infra_craft-dashboard_1 /app/.venv/bin/python /app/scripts/collect_data.py --source github --mode open >> /var/log/collect-data.log 2>&1
 
 # craft-dashboard full collection (open + closed issues, launchpad) — daily at 2 AM UTC
 0 2 * * * root podman exec -i vps-infra_craft-dashboard_1 /app/.venv/bin/python /app/scripts/collect_data.py --source all --mode full >> /var/log/collect-data.log 2>&1
