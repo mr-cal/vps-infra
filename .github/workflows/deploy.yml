@@ -62,6 +62,20 @@ jobs:
             # much faster and needs rotation to avoid filling the disk).
             install -m 0644 logrotate.d/collect-data /etc/logrotate.d/collect-data
 
+            # Prefer IPv4 for outbound dual-stack connections. This droplet's
+            # IPv6 uplink is broken at the TLS layer (every HTTPS handshake over
+            # IPv6 — regardless of destination — gets rejected with a
+            # "tlsv1 alert internal error", while IPv4 works fine and basic ICMPv6
+            # connectivity is healthy). Since getaddrinfo() returns IPv6 first by
+            # default, any dual-stack client on the host (curl, apt, snap, GitHub
+            # API calls, etc.) picks the broken route unless told otherwise. This
+            # only affects host-level name resolution, not container-to-container
+            # traffic on vps-net.
+            marker='# vps-infra: prefer IPv4 (see AGENTS.md Known Quirks)'
+            if ! grep -qF "$marker" /etc/gai.conf; then
+              printf '\n%s\nprecedence ::ffff:0:0/96  100\n' "$marker" >> /etc/gai.conf
+            fi
+
             # Recreate the shared network on every deploy.
             # The root cause of "iptables: Chain already exists": Netavark creates
             # NETAVARK_FORWARD chains in the kernel's ip and ip6 filter tables when

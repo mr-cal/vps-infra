@@ -101,6 +101,23 @@ See the restart procedure below.
 persisted via `/etc/modules-load.d/ip6tables.conf`. Without them, IPv6 connections time
 out even though conmon holds `[::]:443` — the DNAT target silently fails.
 
+**Host outbound IPv6 is broken at the TLS layer**: The droplet's IPv6 uplink accepts
+TCP connections and ICMPv6 fine (ping to the gateway and public IPv6 hosts works with
+normal latency), but every TLS handshake over IPv6 — to any destination (Google,
+Cloudflare, Fastly-hosted api.snapcraft.io, kernel.org, etc.) — is rejected immediately
+after ClientHello with `tlsv1 alert internal error`. This isn't caused by our nftables
+rules (there are no host `OUTPUT`/`INPUT` rules in the `ip6 filter` table — the
+`NETAVARK_FORWARD` rules only affect container-forwarded traffic) or any local proxy;
+it's the datacenter's IPv6 path/scrubbing for this droplet. Because `getaddrinfo()`
+prefers IPv6 by default, any dual-stack HTTPS client on the host (curl, apt, snap,
+GitHub API calls) picks the broken route unless forced to IPv4 (`curl -4`). The deploy
+workflow (`deploy.yml`) mitigates this by appending `precedence ::ffff:0:0/96  100` to
+`/etc/gai.conf`, which makes the host prefer IPv4 for dual-stack lookups. This only
+affects host-level name resolution — container-to-container traffic on `vps-net` is
+unaffected. If this ever needs re-diagnosing: `curl -6 -v https://<any-https-host>`
+from the VPS will reproduce it if the underlying network issue recurs; open a
+DigitalOcean support ticket referencing the droplet's IPv6 `/64`.
+
 **Image names must be fully qualified**: `/etc/containers/registries.conf` has no
 unqualified search registries. Always use `docker.io/library/caddy:2-alpine`, not
 `caddy:2-alpine`.
