@@ -101,22 +101,30 @@ See the restart procedure below.
 persisted via `/etc/modules-load.d/ip6tables.conf`. Without them, IPv6 connections time
 out even though conmon holds `[::]:443` — the DNAT target silently fails.
 
-**Host outbound IPv6 is broken at the TLS layer**: The droplet's IPv6 uplink accepts
-TCP connections and ICMPv6 fine (ping to the gateway and public IPv6 hosts works with
-normal latency), but every TLS handshake over IPv6 — to any destination (Google,
-Cloudflare, Fastly-hosted api.snapcraft.io, kernel.org, etc.) — is rejected immediately
-after ClientHello with `tlsv1 alert internal error`. This isn't caused by our nftables
-rules (there are no host `OUTPUT`/`INPUT` rules in the `ip6 filter` table — the
-`NETAVARK_FORWARD` rules only affect container-forwarded traffic) or any local proxy;
-it's the datacenter's IPv6 path/scrubbing for this droplet. Because `getaddrinfo()`
-prefers IPv6 by default, any dual-stack HTTPS client on the host (curl, apt, snap,
-GitHub API calls) picks the broken route unless forced to IPv4 (`curl -4`). The deploy
-workflow (`deploy.yml`) mitigates this by appending `precedence ::ffff:0:0/96  100` to
-`/etc/gai.conf`, which makes the host prefer IPv4 for dual-stack lookups. This only
-affects host-level name resolution — container-to-container traffic on `vps-net` is
-unaffected. If this ever needs re-diagnosing: `curl -6 -v https://<any-https-host>`
-from the VPS will reproduce it if the underlying network issue recurs; open a
-DigitalOcean support ticket referencing the droplet's IPv6 `/64`.
+**Host outbound IPv6 HTTPS hijacked by our own OUTPUT DNAT rule (fixed)**: All host-level
+outbound HTTPS/HTTP connections over IPv6 — `curl -6 https://<anything>`, `snap install`,
+`apt`, GitHub API calls — used to fail immediately after ClientHello with
+`tlsv1 alert internal error`, regardless of destination (Google, Cloudflare, Fastly,
+kernel.org, etc.). This was misdiagnosed once as a datacenter/DigitalOcean IPv6 network
+problem; it was not. The real cause: the `vps-infra-ipv6-dnat` rule added to the `OUTPUT`
+chain of `ip6tables -t nat` (in `deploy.yml` and `systemd/vps-infra-startup.sh`) matched
+`--dport 443`/`80` with **no destination filter** (`::/0`), intended only to let the
+deploy script's own health check hairpin back to Caddy via the droplet's public IPv6
+address. Because it had no `-d` restriction, it silently DNATed *every* outbound IPv6
+connection on those ports — including to unrelated external hosts — into the Caddy
+container, which doesn't recognize SNI for external domains and kills the handshake.
+Worse, the cleanup loop used `ip6tables -D <chain> ... -j DNAT` (no `--to-destination`),
+which never matched existing rules once Caddy's container IP changed on redeploy, so
+~126+ stale duplicate rules silently accumulated over time. Fix: the `OUTPUT` rule is
+now scoped with `-d "$PUBLIC_IPV6"` (the droplet's own public IPv6 address only), so it
+only affects hairpin traffic to the host's own address; `PREROUTING` (genuinely inbound
+traffic) is left unscoped since only packets truly addressed to this host reach it
+anyway. Stale-rule cleanup now deletes by line number (`ip6tables -t nat -L "$CHAIN"
+--line-numbers -n | awk '/vps-infra-ipv6-dnat/{print $1; exit}'`) instead of by rule
+spec, so it reliably removes old entries regardless of a changed DNAT target. If
+outbound IPv6 HTTPS ever breaks again, check `ip6tables -t nat -L OUTPUT -n` for
+unscoped (`::/0` destination) or duplicated `vps-infra-ipv6-dnat` rules before assuming
+a network-layer problem.
 
 **Image names must be fully qualified**: `/etc/containers/registries.conf` has no
 unqualified search registries. Always use `docker.io/library/caddy:2-alpine`, not

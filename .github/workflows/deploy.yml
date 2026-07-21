@@ -62,19 +62,13 @@ jobs:
             # much faster and needs rotation to avoid filling the disk).
             install -m 0644 logrotate.d/collect-data /etc/logrotate.d/collect-data
 
-            # Prefer IPv4 for outbound dual-stack connections. This droplet's
-            # IPv6 uplink is broken at the TLS layer (every HTTPS handshake over
-            # IPv6 — regardless of destination — gets rejected with a
-            # "tlsv1 alert internal error", while IPv4 works fine and basic ICMPv6
-            # connectivity is healthy). Since getaddrinfo() returns IPv6 first by
-            # default, any dual-stack client on the host (curl, apt, snap, GitHub
-            # API calls, etc.) picks the broken route unless told otherwise. This
-            # only affects host-level name resolution, not container-to-container
-            # traffic on vps-net.
-            marker='# vps-infra: prefer IPv4 (see AGENTS.md Known Quirks)'
-            if ! grep -qF "$marker" /etc/gai.conf; then
-              printf '\n%s\nprecedence ::ffff:0:0/96  100\n' "$marker" >> /etc/gai.conf
-            fi
+            # Remove a stale workaround from an earlier (incorrect) diagnosis: it was
+            # believed the droplet's IPv6 uplink was broken at the TLS layer, so a
+            # gai.conf precedence rule was added to prefer IPv4 for host lookups. The
+            # real root cause was the OUTPUT DNAT rule below hijacking all outbound
+            # IPv6 HTTPS traffic (see its comment). No gai.conf changes are needed now
+            # that the DNAT rule is correctly scoped. Clean it up if present.
+            sed -i '/# vps-infra: prefer IPv4 (see AGENTS.md Known Quirks)/,+1d' /etc/gai.conf 2>/dev/null || true
 
             # Recreate the shared network on every deploy.
             # The root cause of "iptables: Chain already exists": Netavark creates
@@ -153,21 +147,39 @@ jobs:
 
             # Fix netavark's broken IPv6 DNAT rules. Netavark generates rules with
             # 'ip6 daddr ::' (the unspecified address), which never matches real traffic.
-            # Add correct rules without a destination constraint to both:
-            #   PREROUTING: for inbound traffic from external IPv6 clients
-            #   OUTPUT: for traffic originating from the VPS itself (the deploy health check)
+            # Add correct rules to both:
+            #   PREROUTING: for inbound traffic from external IPv6 clients (no destination
+            #     filter needed -- only packets genuinely addressed to this host arrive here)
+            #   OUTPUT: hairpin traffic the host sends to its OWN public IPv6 address (e.g.
+            #     the deploy health check below). This MUST be scoped with -d "$PUBLIC_IPV6".
+            #     A previous version matched --dport with no destination filter, which
+            #     hijacked EVERY outbound IPv6 HTTPS/HTTP connection from the host itself
+            #     (snap, apt, curl to any external site) -- not just the intended hairpin.
+            #     Caddy doesn't recognize SNI for unrelated external hosts, so their TLS
+            #     handshakes failed with "tlsv1 alert internal error". This was the actual
+            #     root cause of "broken outbound IPv6" -- not a datacenter network issue.
             # Use a comment tag to safely delete stale rules from previous deploys before
-            # inserting fresh ones pointing at the current container's IPv6 address.
+            # inserting fresh ones pointing at the current container's IPv6 address. Stale
+            # rules are removed by line number (not by rule spec) since the DNAT target
+            # changes every time the caddy container is recreated and a spec-based delete
+            # without --to-destination silently fails to match, leaking rules on every deploy.
             CADDY_IPV6=$(podman inspect vps-infra_caddy_1 \
               --format '{{range .NetworkSettings.Networks}}{{.GlobalIPv6Address}}{{end}}')
+            PUBLIC_IPV6=$(ip -6 addr show eth0 | awk '/inet6.*global/{print $2}' | cut -d/ -f1 | head -1)
             for CHAIN in PREROUTING OUTPUT; do
-              for PORT in 80 443; do
-                while ip6tables -t nat -D "$CHAIN" -p tcp --dport "$PORT" \
-                    -m comment --comment "vps-infra-ipv6-dnat" -j DNAT 2>/dev/null; do true; done
-                ip6tables -t nat -I "$CHAIN" 1 -p tcp --dport "$PORT" \
-                  -m comment --comment "vps-infra-ipv6-dnat" \
-                  -j DNAT --to-destination ["$CADDY_IPV6"]:"$PORT"
+              while true; do
+                LINE=$(ip6tables -t nat -L "$CHAIN" --line-numbers -n | awk '/vps-infra-ipv6-dnat/{print $1; exit}')
+                [ -z "$LINE" ] && break
+                ip6tables -t nat -D "$CHAIN" "$LINE"
               done
+            done
+            for PORT in 80 443; do
+              ip6tables -t nat -I PREROUTING 1 -p tcp --dport "$PORT" \
+                -m comment --comment "vps-infra-ipv6-dnat" \
+                -j DNAT --to-destination ["$CADDY_IPV6"]:"$PORT"
+              ip6tables -t nat -I OUTPUT 1 -p tcp -d "$PUBLIC_IPV6" --dport "$PORT" \
+                -m comment --comment "vps-infra-ipv6-dnat" \
+                -j DNAT --to-destination ["$CADDY_IPV6"]:"$PORT"
             done
 
             # Verify IPv4 reachability. The check runs on the VPS, so use --resolve
