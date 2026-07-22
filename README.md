@@ -21,6 +21,7 @@ independently.
 | `docker-compose.caddy.yml` | Caddy reverse proxy, static sites (eggcalculator.com, pcbisolation.com) |
 | `docker-compose.craft-dashboard.yml` | craft-dashboard app, PostgreSQL |
 | `docker-compose.remark42.yml` | Remark42 self-hosted comments (comments.pcbisolation.com) |
+| `docker-compose.llm-evaluate.yml` | Continuous LLM evaluation worker for craft-dashboard (HTTP-only, no DB access) |
 
 ## First-time VPS setup
 
@@ -57,6 +58,13 @@ cp /opt/vps-infra/.env.example /opt/vps-infra/.env
 chmod 600 /opt/vps-infra/.env
 # Edit /opt/vps-infra/.env — paste the DB_PASSWORD value into DATABASE_URL,
 # replacing <password>. Fill in the remaining tokens.
+
+cp /opt/vps-infra/llm-evaluate.env.example /opt/vps-infra/llm-evaluate.env
+chmod 600 /opt/vps-infra/llm-evaluate.env
+# Edit /opt/vps-infra/llm-evaluate.env — fill in EVAL_API_TOKEN (must match
+# EVAL_API_TOKEN in .env) and OPENROUTER_API_KEY. Deliberately has no
+# DATABASE_URL: the LLM evaluation worker only talks to craft-dashboard's
+# /api/eval/* HTTP endpoints, never the database directly.
 ```
 
 **3. Trigger the first deploy** by pushing to `main` or running the workflow

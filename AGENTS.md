@@ -156,6 +156,7 @@ podman rm -f vps-infra_craft-dashboard_1 2>/dev/null || true
 podman rm -f vps-infra_remark42_1 2>/dev/null || true
 podman rm -f vps-infra_caddy_1 2>/dev/null || true
 podman rm -f vps-infra_postgres_1 2>/dev/null || true
+podman rm -f vps-infra_llm-evaluate_1 2>/dev/null || true
 podman network rm vps-net 2>/dev/null || true
 nft flush chain ip filter NETAVARK_FORWARD 2>/dev/null || true
 nft delete chain ip filter NETAVARK_FORWARD 2>/dev/null || true
@@ -165,6 +166,7 @@ podman network create --ipv6 vps-net
 cd /opt/vps-infra
 podman-compose -f docker-compose.caddy.yml up -d
 podman-compose -f docker-compose.craft-dashboard.yml up -d
+podman-compose -f docker-compose.llm-evaluate.yml up -d
 podman-compose -f /tmp/docker-compose.remark42.rendered.yml up -d
 SUBNET=$(podman network inspect vps-net --format '{{range .Subnets}}{{.Subnet}} {{end}}' | tr ' ' '\n' | grep -v ':' | head -1)
 IPV6_SUBNET=$(podman network inspect vps-net --format '{{range .Subnets}}{{.Subnet}} {{end}}' | tr ' ' '\n' | grep ':' | head -1)

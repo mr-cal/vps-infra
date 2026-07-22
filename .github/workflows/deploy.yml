@@ -47,6 +47,14 @@ jobs:
             git pull --no-recurse-submodules origin main
             git submodule update --checkout --remote --init --recursive
 
+            # llm-evaluate.env is a one-time manual setup step (like .env), not
+            # something the deploy creates — fail loudly instead of silently
+            # starting the worker with a missing token/API key.
+            if [ ! -f /opt/vps-infra/llm-evaluate.env ]; then
+              echo "ERROR: /opt/vps-infra/llm-evaluate.env is missing. Copy llm-evaluate.env.example, fill in EVAL_API_TOKEN/OPENROUTER_API_KEY, and chmod 600 it."
+              exit 1
+            fi
+
             # Install/update the startup service so the site survives reboots.
             install -m 0755 systemd/vps-infra-startup.sh /usr/local/sbin/vps-infra-startup.sh
             install -m 0644 systemd/vps-infra-startup.service /etc/systemd/system/vps-infra-startup.service
@@ -86,6 +94,7 @@ jobs:
             podman rm -f vps-infra_remark42_1 2>/dev/null || true
             podman rm -f vps-infra_caddy_1 2>/dev/null || true
             podman rm -f vps-infra_postgres_1 2>/dev/null || true
+            podman rm -f vps-infra_llm-evaluate_1 2>/dev/null || true
             podman network rm vps-net 2>/dev/null || true
             nft flush chain ip filter NETAVARK_FORWARD 2>/dev/null || true
             nft delete chain ip filter NETAVARK_FORWARD 2>/dev/null || true
@@ -118,6 +127,7 @@ jobs:
             # stop/rm of already-removed containers before successfully creating new ones.
             podman-compose -f docker-compose.caddy.yml up -d
             podman-compose -f docker-compose.craft-dashboard.yml up -d
+            podman-compose -f docker-compose.llm-evaluate.yml up -d
 
             # Start Remark42 with secrets substituted at deploy time.
             sed \
@@ -135,6 +145,7 @@ jobs:
             podman ps --filter name=vps-infra_postgres_1 --filter status=running --format '{{.Names}}' | grep -q vps-infra_postgres_1
             podman ps --filter name=vps-infra_craft-dashboard_1 --filter status=running --format '{{.Names}}' | grep -q vps-infra_craft-dashboard_1
             podman ps --filter name=vps-infra_remark42_1 --filter status=running --format '{{.Names}}' | grep -q vps-infra_remark42_1
+            podman ps --filter name=vps-infra_llm-evaluate_1 --filter status=running --format '{{.Names}}' | grep -q vps-infra_llm-evaluate_1
 
             # Podman's NETAVARK_FORWARD chain is created when the first container
             # starts. Add the missing rules that allow new inbound connections.

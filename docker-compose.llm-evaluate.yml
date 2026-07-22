@@ -1,0 +1,20 @@
+# Continuous LLM evaluation worker for craft-dashboard.
+#
+# Runs `scripts/run_llm.py evaluate` against craft-dashboard's `/api/eval/*`
+# HTTP API only (see craft-dashboard's docs/evaluate.md) — it never touches
+# the database directly. `llm-evaluate.env` deliberately has NO
+# DATABASE_URL, so even if this container were compromised it has no way to
+# reach the database, only the HTTP API craft-dashboard already exposes.
+
+services:
+  llm-evaluate:
+    image: ghcr.io/mr-cal/craft-dashboard:latest
+    command: ["/app/.venv/bin/python", "/app/scripts/run_llm.py", "evaluate", "--all-issues"]
+    env_file: llm-evaluate.env
+    networks:
+      - vps-net
+    restart: unless-stopped
+
+networks:
+  vps-net:
+    external: true

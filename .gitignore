@@ -1,5 +1,6 @@
 .env
 .env.llm
+llm-evaluate.env
 backups/*.gz
 backups/*.sql
 
