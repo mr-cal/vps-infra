@@ -1,5 +1,39 @@
 repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: check-json
+      - id: check-added-large-files
+      - id: detect-private-key
+
+  - repo: https://github.com/koalaman/shellcheck-precommit
+    rev: v0.10.0
+    hooks:
+      - id: shellcheck
+        language: system
+        entry: shellcheck
+
+  - repo: https://github.com/scop/pre-commit-shfmt
+    rev: v3.9.0-1
+    hooks:
+      - id: shfmt
+        args: ["-i", "2", "-ci", "-s"]
+
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.30.1
     hooks:
       - id: gitleaks
+
+  - repo: local
+    hooks:
+      - id: cron-syntax
+        name: Validate cron file syntax
+        language: system
+        entry: "bash -c 'for f in cron.d/*; do grep -qE \"^[0-9*,/-]+[[:space:]]\" \"$f\" || { echo \"Invalid cron syntax: $f\"; exit 1; }; done'"
+        pass_filenames: false
+        types: [file]
+        files: '^cron\.d/'

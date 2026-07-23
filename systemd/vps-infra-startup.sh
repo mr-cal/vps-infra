@@ -15,8 +15,8 @@ podman rm -f vps-infra_caddy_1 2>/dev/null || true
 podman rm -f vps-infra_postgres_1 2>/dev/null || true
 podman rm -f vps-infra_llm-evaluate_1 2>/dev/null || true
 podman network rm vps-net 2>/dev/null || true
-nft flush chain ip  filter NETAVARK_FORWARD 2>/dev/null || true
-nft delete chain ip  filter NETAVARK_FORWARD 2>/dev/null || true
+nft flush chain ip filter NETAVARK_FORWARD 2>/dev/null || true
+nft delete chain ip filter NETAVARK_FORWARD 2>/dev/null || true
 nft flush chain ip6 filter NETAVARK_FORWARD 2>/dev/null || true
 nft delete chain ip6 filter NETAVARK_FORWARD 2>/dev/null || true
 podman network create --ipv6 vps-net
@@ -28,12 +28,12 @@ podman-compose -f docker-compose.llm-evaluate.yml up -d
 
 # Add missing ct state new rules to NETAVARK_FORWARD (netavark omits them).
 SUBNET=$(podman network inspect vps-net \
-  --format '{{range .Subnets}}{{.Subnet}} {{end}}' \
-  | tr ' ' '\n' | grep -v ':' | head -1)
+  --format '{{range .Subnets}}{{.Subnet}} {{end}}' |
+  tr ' ' '\n' | grep -v ':' | head -1)
 IPV6_SUBNET=$(podman network inspect vps-net \
-  --format '{{range .Subnets}}{{.Subnet}} {{end}}' \
-  | tr ' ' '\n' | grep ':' | head -1)
-nft insert rule ip  filter NETAVARK_FORWARD ip  daddr "$SUBNET"      ct state new accept 2>/dev/null || true
+  --format '{{range .Subnets}}{{.Subnet}} {{end}}' |
+  tr ' ' '\n' | grep ':' | head -1)
+nft insert rule ip filter NETAVARK_FORWARD ip daddr "$SUBNET" ct state new accept 2>/dev/null || true
 nft insert rule ip6 filter NETAVARK_FORWARD ip6 daddr "$IPV6_SUBNET" ct state new accept 2>/dev/null || true
 
 # Fix netavark's broken IPv6 DNAT rules (see deploy.yml for full explanation).

@@ -50,4 +50,3 @@ www.pcbisolation.com {
 comments.pcbisolation.com {
 	reverse_proxy vps-infra_remark42_1:8080
 }
-

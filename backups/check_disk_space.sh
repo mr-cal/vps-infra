@@ -49,5 +49,5 @@ curl -sf -X POST "https://api.resend.com/emails" \
   -d "$(printf '{"from":"%s","to":["%s"],"subject":"vps-infra: disk usage at %s%% on %s","text":"Root disk usage is %s%% (threshold %s%%).\n\ndf -h /:\n%s\n\nInvestigate before this cascades into an outage (see plans/2026-07-23-remark42-comment-backup-recovery.md in pcbisolation for the incident this is guarding against)."}' \
     "${ALERT_EMAIL_FROM}" "${ALERT_EMAIL_TO}" "${USAGE_PCT}" "$(hostname)" "${USAGE_PCT}" "${WARN_PCT}" "${DF_DETAIL}")"
 
-echo "${TODAY}" > "${STATE_FILE}"
+echo "${TODAY}" >"${STATE_FILE}"
 echo "ALERT SENT: disk usage ${USAGE_PCT}% (>= ${WARN_PCT}%)."
