@@ -79,8 +79,7 @@ jobs:
             install -m 0644 cron.d/prune-images /etc/cron.d/prune-images
             install -m 0644 cron.d/disk-space-check /etc/cron.d/disk-space-check
             install -m 0644 cron.d/backup-remark42 /etc/cron.d/backup-remark42
-            install -m 0755 backups/check_disk_space.sh /opt/vps-infra/backups/check_disk_space.sh
-            install -m 0755 backups/backup_remark42.sh /opt/vps-infra/backups/backup_remark42.sh
+            chmod 0755 backups/check_disk_space.sh backups/backup_remark42.sh
 
             # Cap journald's persistent log size (911MB with no limit was a
             # direct contributor to the disk-full incident above).
