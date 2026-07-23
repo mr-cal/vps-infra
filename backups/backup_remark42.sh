@@ -24,11 +24,12 @@ SECRETS_ENV="/etc/vps-infra/secrets.env"
 # shellcheck disable=SC1090
 source "${SECRETS_ENV}"
 
-: "${REMARK_ADMIN_EMAIL:?REMARK_ADMIN_EMAIL missing from ${SECRETS_ENV}}"
 : "${REMARK_ADMIN_PASSWD:?REMARK_ADMIN_PASSWD missing from ${SECRETS_ENV}}"
 : "${REMARK_BACKUP_GPG_PASSPHRASE:?REMARK_BACKUP_GPG_PASSPHRASE missing from ${SECRETS_ENV}}"
 
-curl -sf -u "${REMARK_ADMIN_EMAIL}:${REMARK_ADMIN_PASSWD}" \
+# Remark42's admin API expects the literal username "admin" for HTTP Basic
+# Auth (not the ADMIN_SHARED_EMAIL address) — password is ADMIN_PASSWD.
+curl -sf -u "admin:${REMARK_ADMIN_PASSWD}" \
   "https://comments.pcbisolation.com/api/v1/admin/export?site=${SITE}&mode=file" \
   -o "${EXPORT_FILE}"
 
