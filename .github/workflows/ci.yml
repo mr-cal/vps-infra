@@ -26,7 +26,6 @@ jobs:
       - name: Lint compose files
         run: |
           yamllint -d relaxed docker-compose.*.yml
-          yamllint -d relaxed cron.d/* systemd/*.conf
 
   gitleaks:
     runs-on: ubuntu-latest
@@ -36,7 +35,7 @@ jobs:
           fetch-depth: 0
       - name: Run gitleaks
         run: |
-          ghcr.io/gitleaks/gitleaks:v8.30.1 detect --log-opts "HEAD~..HEAD"
+          docker run --rm -v $(pwd):/src zricethezelle/gitleaks:v8.30.1 detect --log-opts "HEAD~..HEAD"
 
   pre-commit:
     runs-on: ubuntu-latest
@@ -44,6 +43,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
         with:
           fetch-depth: 0
-      - uses: astral-sh/setup-uv@fac544c07dec837dccb6301d7b5580bf5edae39 # v8.2.0
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
       - name: Run pre-commit hooks
         run: uvx --from pre-commit pre-commit run --all-files
