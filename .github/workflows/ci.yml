@@ -35,7 +35,7 @@ jobs:
           fetch-depth: 0
       - name: Run gitleaks
         run: |
-          docker run --rm -v $(pwd):/src zricethezelle/gitleaks:v8.30.1 detect --log-opts "HEAD~..HEAD"
+          docker run --rm -v $(pwd):/src ghcr.io/gitleaks/gitleaks:v8.30.1 detect --log-opts "HEAD~..HEAD"
 
   pre-commit:
     runs-on: ubuntu-latest
