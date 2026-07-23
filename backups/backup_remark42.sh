@@ -14,7 +14,7 @@
 set -euo pipefail
 
 BACKUP_DIR="$(cd "$(dirname "$0")" && pwd)"
-RETENTION_DAYS=90  # ~12 weekly backups retained locally on the VPS
+RETENTION_DAYS=90 # ~12 weekly backups retained locally on the VPS
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 SITE="pcbisolation"
 EXPORT_FILE="${BACKUP_DIR}/remark42_${SITE}_${TIMESTAMP}.json.gz"
