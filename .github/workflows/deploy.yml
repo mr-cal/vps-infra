@@ -125,11 +125,18 @@ jobs:
             # when containers were already removed above. This is expected — podman-compose
             # tries to recreate containers whose config hash changed and errors on the
             # stop/rm of already-removed containers before successfully creating new ones.
-            podman-compose -f docker-compose.caddy.yml up -d
-            podman-compose -f docker-compose.craft-dashboard.yml up -d
-            podman-compose -f docker-compose.llm-evaluate.yml up -d
+            podman-compose -p vps-infra -f docker-compose.caddy.yml up -d
+            podman-compose -p vps-infra -f docker-compose.craft-dashboard.yml up -d
+            podman-compose -p vps-infra -f docker-compose.llm-evaluate.yml up -d
 
-            # Start Remark42 with secrets substituted at deploy time.
+            # Start Remark42 with secrets substituted at deploy time. The rendered
+            # file lives in /tmp (it contains secrets and must never land in the
+            # git checkout), so we pass -p explicitly: podman-compose otherwise
+            # derives the project name from the compose file's own directory,
+            # which would make it "tmp" instead of "vps-infra" and create a
+            # throwaway "tmp_remark42_data" volume instead of reusing the real
+            # "vps-infra_remark42_data" one on every deploy that recreates the
+            # container.
             sed \
               -e "s/REPLACE_WITH_OPENSSL_OUTPUT/$REMARK_SECRET/" \
               -e "s/REPLACE_WITH_RESEND_API_KEY/$RESEND_API_KEY/" \
@@ -137,7 +144,7 @@ jobs:
               -e "s/REPLACE_WITH_ADMIN_PASSWORD/$REMARK_ADMIN_PASSWD/" \
               -e "s/REPLACE_WITH_ADMIN_EMAIL/$REMARK_ADMIN_EMAIL/" \
               docker-compose.remark42.yml > /tmp/docker-compose.remark42.rendered.yml
-            podman-compose -f /tmp/docker-compose.remark42.rendered.yml up -d
+            podman-compose -p vps-infra -f /tmp/docker-compose.remark42.rendered.yml up -d
 
             # Verify containers are running — podman-compose swallows up exit codes
             # and podman wait exits 0 regardless of the container exit code.
