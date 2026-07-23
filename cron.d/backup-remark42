@@ -1,0 +1,6 @@
+# Remark42 comment backup for pcbisolation — weekly, Sunday 04:00 UTC.
+# Exports comments, encrypts them (see backup_remark42.sh), and retains 90
+# days locally. A separate GitHub Actions workflow (backup-remark42.yml)
+# pulls the encrypted file off the VPS and archives it as a build artifact,
+# so a backup never lives only on the disk that could fail again.
+0 4 * * 0 root /opt/vps-infra/backups/backup_remark42.sh >> /var/log/backup-remark42.log 2>&1

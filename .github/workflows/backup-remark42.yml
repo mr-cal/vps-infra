@@ -1,0 +1,46 @@
+name: Backup Remark42 comments
+
+# Pulls the latest encrypted Remark42 comment backup off the VPS and stores
+# it as a build artifact. The file is already gpg-encrypted by
+# backups/backup_remark42.sh before it ever leaves the VPS — this workflow
+# never sees or needs the decryption passphrase, since vps-infra is a public
+# repo and artifacts here are downloadable by any signed-in GitHub user.
+on:
+  schedule:
+    # Sunday 05:00 UTC — after the weekly 04:00 UTC backup cron on the VPS.
+    - cron: "0 5 * * 0"
+  workflow_dispatch:
+
+jobs:
+  fetch-backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch latest encrypted backup from VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh remark42-backup
+          echo "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+          LATEST="$(ssh -i ~/.ssh/deploy_key "${VPS_USER}@${VPS_HOST}" \
+            'ls -t /opt/vps-infra/backups/remark42_pcbisolation_*.json.gz.gpg 2>/dev/null | head -1')"
+
+          if [ -z "${LATEST}" ]; then
+            echo "No Remark42 backup file found on VPS (has backup_remark42.sh run yet?)" >&2
+            exit 1
+          fi
+
+          echo "Fetching ${LATEST}"
+          scp -i ~/.ssh/deploy_key "${VPS_USER}@${VPS_HOST}:${LATEST}" remark42-backup/
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: remark42-comments-backup-${{ github.run_id }}
+          path: remark42-backup/*.json.gz.gpg
+          retention-days: 90
+          if-no-files-found: error

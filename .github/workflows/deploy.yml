@@ -22,11 +22,12 @@ jobs:
           AKISMET_KEY: ${{ secrets.AKISMET_KEY }}
           REMARK_ADMIN_PASSWD: ${{ secrets.REMARK_ADMIN_PASSWD }}
           REMARK_ADMIN_EMAIL: ${{ secrets.REMARK_ADMIN_EMAIL }}
+          REMARK_BACKUP_GPG_PASSPHRASE: ${{ secrets.REMARK_BACKUP_GPG_PASSPHRASE }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          envs: DB_PASSWORD,REMARK_SECRET,RESEND_API_KEY,AKISMET_KEY,REMARK_ADMIN_PASSWD,REMARK_ADMIN_EMAIL
+          envs: DB_PASSWORD,REMARK_SECRET,RESEND_API_KEY,AKISMET_KEY,REMARK_ADMIN_PASSWD,REMARK_ADMIN_EMAIL,REMARK_BACKUP_GPG_PASSPHRASE
           script: |
             set -euo pipefail
 
@@ -69,6 +70,37 @@ jobs:
             # (now runs every 10 minutes instead of every 4 hours, so it grows
             # much faster and needs rotation to avoid filling the disk).
             install -m 0644 logrotate.d/collect-data /etc/logrotate.d/collect-data
+
+            # Install/update disk-hygiene and Remark42 backup cron jobs. Added
+            # after the 2026-07-23 incident where an unpruned image backlog
+            # filled the disk and wiped Remark42's comment data with no
+            # backup to recover from (see pcbisolation's
+            # plans/2026-07-23-remark42-comment-backup-recovery.md).
+            install -m 0644 cron.d/prune-images /etc/cron.d/prune-images
+            install -m 0644 cron.d/disk-space-check /etc/cron.d/disk-space-check
+            install -m 0644 cron.d/backup-remark42 /etc/cron.d/backup-remark42
+            install -m 0755 backups/check_disk_space.sh /opt/vps-infra/backups/check_disk_space.sh
+            install -m 0755 backups/backup_remark42.sh /opt/vps-infra/backups/backup_remark42.sh
+
+            # Cap journald's persistent log size (911MB with no limit was a
+            # direct contributor to the disk-full incident above).
+            mkdir -p /etc/systemd/journald.conf.d
+            install -m 0644 systemd/journald-vps-infra.conf /etc/systemd/journald.conf.d/vps-infra.conf
+            systemctl restart systemd-journald
+
+            # Write shared secrets for the disk-space-check and
+            # backup_remark42 cron scripts. Root-only — never logged, never
+            # committed (this file lives only on the VPS).
+            install -d -m 0700 /etc/vps-infra
+            cat > /etc/vps-infra/secrets.env <<EOF
+            RESEND_API_KEY=${RESEND_API_KEY}
+            REMARK_ADMIN_EMAIL=${REMARK_ADMIN_EMAIL}
+            REMARK_ADMIN_PASSWD=${REMARK_ADMIN_PASSWD}
+            REMARK_BACKUP_GPG_PASSPHRASE=${REMARK_BACKUP_GPG_PASSPHRASE}
+            ALERT_EMAIL_TO=${REMARK_ADMIN_EMAIL}
+            ALERT_EMAIL_FROM=noreply@pcbisolation.com
+            EOF
+            chmod 0600 /etc/vps-infra/secrets.env
 
             # Remove a stale workaround from an earlier (incorrect) diagnosis: it was
             # believed the droplet's IPv6 uplink was broken at the TLS layer, so a

@@ -1,0 +1,7 @@
+# Prune dangling podman images daily (05:00 UTC).
+# podman-auto-update.timer only removes images it directly replaced; it does
+# NOT clean up <none> dangling images left behind by frequent craft-dashboard
+# rebuilds (ghcr.io/mr-cal/craft-dashboard:latest, ~300MB per pull). Left
+# unchecked these accumulate and can fill the disk (see 2026-07-23 Remark42
+# comment-data-loss incident, root-caused to this exact issue).
+0 5 * * * root podman image prune -f >> /var/log/prune-images.log 2>&1
