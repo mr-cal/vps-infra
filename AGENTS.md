@@ -37,6 +37,26 @@ Required GitHub Actions secrets: `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `DB_PASS
 The DB password is passed as a podman secret (not an env var) so it doesn't appear
 in `podman inspect` output or logs or in CI logs.
 
+## Pre-commit and CI
+This repo has a CI pipeline and pre-commit hooks. **All linters must pass before committing and before deploying.**
+
+**Before committing:**
+```bash
+make test        # runs all pre-commit hooks (CI parity)
+# or individually:
+make shellcheck  # lint shell scripts
+make yamllint    # lint YAML configs
+make gitleaks    # scan for secrets
+make format      # auto-format shell scripts (shfmt)
+```
+
+**Before deploying:**
+- Push to `main` triggers `.github/workflows/deploy.yml` automatically.
+- **Wait for CI to succeed on `main`** before assuming the deploy is safe. A failed CI means the commit has linting or security issues.
+- The CI runs `shellcheck`, `yamllint`, `gitleaks`, and `pre-commit` (which includes `shellcheck`, `shfmt`, `check-yaml`, `end-of-file-fixer`, `trailing-whitespace`, `detect-private-key`, `gitleaks`, and `cron-syntax`).
+- If CI fails, fix the reported issues locally (`make lint` will show what's wrong) and push again.
+- Use `make setup` to install pre-commit hooks locally so they run automatically on `git commit`.
+
 ## Known Quirks
 
 **podman-compose exit codes**: `podman-compose up -d` exits 0 even on failure. Use
