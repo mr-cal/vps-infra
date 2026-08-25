@@ -1,8 +1,14 @@
 # craft-dashboard open-issue and release refresh every 10 minutes
 */10 * * * * root podman exec -i vps-infra_craft-dashboard_1 /app/.venv/bin/python /app/scripts/collect_data.py --source github --mode open >> /var/log/collect-data.log 2>&1
 
-# craft-dashboard full collection (open + closed issues, launchpad) — daily at 2 AM UTC
-0 2 * * * root podman exec -i vps-infra_craft-dashboard_1 /app/.venv/bin/python /app/scripts/collect_data.py --source all --mode full >> /var/log/collect-data.log 2>&1
+# craft-dashboard hourly full-project refresh rotation — picks whichever
+# project+source (GitHub or Launchpad) has gone longest without a full
+# refresh and fully refreshes just that one. Runs hourly so the rotation
+# cycles through every project roughly once a day. Replaces the old
+# fixed "--mode full" cron job, which was per-project gated to once
+# every 7 days (see craft_dashboard/config.py: refresh_interval_days)
+# and left every project's full-refresh timestamp days-to-weeks stale.
+17 * * * * root podman exec -i vps-infra_craft-dashboard_1 /app/.venv/bin/python /app/scripts/collect_data.py --mode rotation >> /var/log/collect-data.log 2>&1
 
 # craft-dashboard forum activity backfill+refresh (snapcraft/charmhub/rockcraft Discourse) — every 15 minutes
 */15 * * * * root podman exec -i vps-infra_craft-dashboard_1 /app/.venv/bin/python /app/scripts/collect_forum_data.py --mode all >> /var/log/collect-data.log 2>&1
