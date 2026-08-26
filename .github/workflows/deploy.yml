@@ -65,11 +65,13 @@ jobs:
             # Install/update cron jobs for craft-dashboard.
             install -m 0644 cron.d/collect-data /etc/cron.d/collect-data
             install -m 0644 cron.d/backfill-snapshots /etc/cron.d/backfill-snapshots
+            install -m 0644 cron.d/commit-scanner /etc/cron.d/commit-scanner
 
             # Install/update logrotate policy for the collect-data cron log
             # (now runs every 10 minutes instead of every 4 hours, so it grows
             # much faster and needs rotation to avoid filling the disk).
             install -m 0644 logrotate.d/collect-data /etc/logrotate.d/collect-data
+            install -m 0644 logrotate.d/commit-scanner /etc/logrotate.d/commit-scanner
 
             # Install/update disk-hygiene and Remark42 backup cron jobs. Added
             # after the 2026-07-23 incident where an unpruned image backlog

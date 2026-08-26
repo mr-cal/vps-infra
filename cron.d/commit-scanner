@@ -1,0 +1,10 @@
+# craft-dashboard daily commit-scanner pass — fetches every tracked project's
+# mirror and scans new commits since the last pass for issues they might
+# invalidate (qualified/bare/Launchpad references, changed paths, semantic
+# match). Bumps Issue.evidence_generation for matched OPEN issues; the
+# LLMEvaluation-side staleness comparison that triggers re-evaluation is
+# deferred to a later phase (this job only produces the invalidation signal).
+# Runs once daily at 02:00 UTC, well clear of the other collect-data/backfill
+# jobs. The scanner is the sole owner of `git fetch` for its own mirrors, so
+# it has no ordering dependency on any other job.
+0 2 * * * root podman exec -i vps-infra_craft-dashboard_1 /app/.venv/bin/craft-dashboard commit-scanner run >> /var/log/commit-scanner.log 2>&1
