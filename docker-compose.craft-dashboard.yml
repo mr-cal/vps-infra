@@ -7,6 +7,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    volumes:
+      - /opt/vps-infra/mirrors:/opt/vps-infra/mirrors:rw
+    environment:
+      CRAFT_DASHBOARD_MIRROR_DIR: /opt/vps-infra/mirrors
     networks:
       - vps-net
     restart: on-failure

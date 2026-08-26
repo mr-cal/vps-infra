@@ -5,12 +5,23 @@
 # the database directly. `llm-evaluate.env` deliberately has NO
 # DATABASE_URL, so even if this container were compromised it has no way to
 # reach the database, only the HTTP API craft-dashboard already exposes.
+#
+# The /opt/vps-infra/mirrors bind mount (read-only here, read-write in
+# docker-compose.craft-dashboard.yml) is additive only: it gives this
+# container read access to the bare git mirrors craft-dashboard maintains
+# for deep evaluation's git tools (craft-dashboard's Phase 2 git_mirrors
+# package). It does not change the container's database-isolation guarantee
+# above — public, already-cloned source code, read-only.
 
 services:
   llm-evaluate:
     image: ghcr.io/mr-cal/craft-dashboard:latest
     command: ["/app/.venv/bin/python", "/app/scripts/run_llm.py", "evaluate", "--all-issues"]
     env_file: llm-evaluate.env
+    volumes:
+      - /opt/vps-infra/mirrors:/opt/vps-infra/mirrors:ro
+    environment:
+      CRAFT_DASHBOARD_MIRROR_DIR: /opt/vps-infra/mirrors
     networks:
       - vps-net
     restart: unless-stopped
