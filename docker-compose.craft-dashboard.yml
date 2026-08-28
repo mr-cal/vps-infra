@@ -11,6 +11,11 @@ services:
       - /opt/vps-infra/mirrors:/opt/vps-infra/mirrors:rw
     environment:
       CRAFT_DASHBOARD_MIRROR_DIR: /opt/vps-infra/mirrors
+      # Bound simultaneous git subprocesses (git grep/log/show) independent
+      # of eval concurrency. 2 is the recommended VPS value (see
+      # craft-dashboard's Phase 2 plan); set explicitly so a future code
+      # default change can't silently raise it on this 1-vCPU VPS.
+      CRAFT_DASHBOARD_GIT_CONCURRENCY: 2
     networks:
       - vps-net
     restart: on-failure
