@@ -16,7 +16,11 @@
 services:
   llm-evaluate:
     image: ghcr.io/mr-cal/craft-dashboard:latest
-    command: ["/app/.venv/bin/python", "/app/scripts/run_llm.py", "evaluate", "--all-issues"]
+    # --concurrency 6: Phase 6's tool-calling loop runs git subprocesses
+    # (via craft-dashboard's git_mirrors reader) per concurrent evaluation,
+    # so eval concurrency is pinned below the CLI's built-in default of 10
+    # to bound RAM/CPU on this VPS's shared resources.
+    command: ["/app/.venv/bin/python", "/app/scripts/run_llm.py", "evaluate", "--all-issues", "--concurrency", "6"]
     env_file: llm-evaluate.env
     volumes:
       - /opt/vps-infra/mirrors:/opt/vps-infra/mirrors:ro
