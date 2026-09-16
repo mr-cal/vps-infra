@@ -11,6 +11,7 @@ cd /opt/vps-infra
 # deploy workflow). Netavark leaves NETAVARK_FORWARD chains in the kernel when
 # the network is removed; clean them up so the next network create succeeds.
 podman rm -f vps-infra_craft-dashboard_1 2>/dev/null || true
+podman rm -f vps-infra_remark42_1 2>/dev/null || true
 podman rm -f vps-infra_caddy_1 2>/dev/null || true
 podman rm -f vps-infra_postgres_1 2>/dev/null || true
 podman rm -f vps-infra_llm-evaluate_1 2>/dev/null || true
@@ -19,7 +20,7 @@ nft flush chain ip filter NETAVARK_FORWARD 2>/dev/null || true
 nft delete chain ip filter NETAVARK_FORWARD 2>/dev/null || true
 nft flush chain ip6 filter NETAVARK_FORWARD 2>/dev/null || true
 nft delete chain ip6 filter NETAVARK_FORWARD 2>/dev/null || true
-podman network create --ipv6 vps-net
+podman network exists vps-net || podman network create --ipv6 vps-net
 
 # Start services (uses locally cached images — no pull on boot).
 podman-compose -f docker-compose.caddy.yml up -d
