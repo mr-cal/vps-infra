@@ -48,11 +48,9 @@ jobs:
             git pull --no-recurse-submodules origin main
             git submodule update --checkout --remote --init --recursive
 
-            # llm-evaluate.env is a one-time manual setup step (like .env), not
-            # something the deploy creates — fail loudly instead of silently
-            # starting the worker with a missing token/API key.
-            if [ ! -f /opt/vps-infra/llm-evaluate.env ]; then
-              echo "ERROR: /opt/vps-infra/llm-evaluate.env is missing. Copy llm-evaluate.env.example, fill in EVAL_API_TOKEN/OPENROUTER_API_KEY, and chmod 600 it."
+            # .env is a one-time manual setup step, not something the deploy creates
+            if [ ! -f /opt/vps-infra/.env ]; then
+              echo "ERROR: /opt/vps-infra/.env is missing. Copy .env.example, fill in required secrets, and chmod 600 it."
               exit 1
             fi
 

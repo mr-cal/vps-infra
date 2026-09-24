@@ -57,14 +57,8 @@ The `VPSINFRA_PAT` is used by the pcbisolation CI to trigger a `repository_dispa
 cp /opt/vps-infra/.env.example /opt/vps-infra/.env
 chmod 600 /opt/vps-infra/.env
 # Edit /opt/vps-infra/.env — paste the DB_PASSWORD value into DATABASE_URL,
-# replacing <password>. Fill in the remaining tokens.
-
-cp /opt/vps-infra/llm-evaluate.env.example /opt/vps-infra/llm-evaluate.env
-chmod 600 /opt/vps-infra/llm-evaluate.env
-# Edit /opt/vps-infra/llm-evaluate.env — fill in EVAL_API_TOKEN (must match
-# EVAL_API_TOKEN in .env) and OPENROUTER_API_KEY. Deliberately has no
-# DATABASE_URL: the LLM evaluation worker only talks to craft-dashboard's
-# /api/eval/* HTTP endpoints, never the database directly.
+# replacing <password>. Fill in the remaining tokens and LLM credentials.
+# Both craft-dashboard and llm-evaluate containers read from this unified file.
 ```
 
 **3. Trigger the first deploy** by pushing to `main` or running the workflow

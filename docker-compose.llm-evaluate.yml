@@ -1,17 +1,12 @@
 # Continuous LLM evaluation worker for craft-dashboard.
 #
 # Runs `scripts/run_llm.py evaluate` against craft-dashboard's `/api/eval/*`
-# HTTP API only (see craft-dashboard's docs/evaluate.md) — it never touches
-# the database directly. `llm-evaluate.env` deliberately has NO
-# DATABASE_URL, so even if this container were compromised it has no way to
-# reach the database, only the HTTP API craft-dashboard already exposes.
+# HTTP API only (see craft-dashboard's docs/evaluate.md).
+# Uses the unified .env file.
 #
 # The /opt/vps-infra/mirrors bind mount (read-only here, read-write in
-# docker-compose.craft-dashboard.yml) is additive only: it gives this
-# container read access to the bare git mirrors craft-dashboard maintains
-# for deep evaluation's git tools (craft-dashboard's Phase 2 git_mirrors
-# package). It does not change the container's database-isolation guarantee
-# above — public, already-cloned source code, read-only.
+# docker-compose.craft-dashboard.yml) gives this container read access to the bare
+# git mirrors craft-dashboard maintains for deep evaluation's git tools.
 
 services:
   llm-evaluate:
@@ -21,7 +16,7 @@ services:
     # so eval concurrency is pinned below the CLI's built-in default of 10
     # to bound RAM/CPU on this VPS's shared resources.
     command: ["/app/.venv/bin/python", "/app/scripts/run_llm.py", "evaluate", "--all-issues", "--concurrency", "6"]
-    env_file: llm-evaluate.env
+    env_file: .env
     volumes:
       - /opt/vps-infra/mirrors:/opt/vps-infra/mirrors:ro
     environment:
