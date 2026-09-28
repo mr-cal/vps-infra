@@ -1,0 +1,5 @@
+# Craft-dashboard PostgreSQL database backup — daily at 03:00 UTC.
+# Dumps DB, encrypts with GPG, and retains 14 days locally. A separate
+# GitHub Actions workflow (backup-craft-dashboard.yml) pulls the encrypted
+# file off the VPS and archives it as a build artifact.
+0 3 * * * root /opt/vps-infra/backups/backup.sh >> /var/log/backup-craft-dashboard.log 2>&1

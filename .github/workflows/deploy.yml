@@ -64,6 +64,8 @@ jobs:
             install -m 0644 cron.d/collect-data /etc/cron.d/collect-data
             install -m 0644 cron.d/backfill-snapshots /etc/cron.d/backfill-snapshots
             install -m 0644 cron.d/commit-scanner /etc/cron.d/commit-scanner
+            install -m 0644 cron.d/backup-craft-dashboard /etc/cron.d/backup-craft-dashboard
+            chmod 0755 backups/backup.sh
 
             # Install/update logrotate policy for the collect-data cron log
             # (now runs every 10 minutes instead of every 4 hours, so it grows
@@ -239,7 +241,7 @@ jobs:
               STATUS=$(curl -4 -s -o /dev/null -w "%{http_code}" --max-time 10 \
                 --resolve craft-dashboard.name:443:127.0.0.1 \
                 --resolve craft-dashboard.name:80:127.0.0.1 \
-                https://craft-dashboard.name/ 2>/dev/null)
+                https://craft-dashboard.name/ 2>/dev/null || true)
               echo "  attempt $i: $STATUS"
               [ "$STATUS" = "200" ] && break
               sleep 5
@@ -252,7 +254,7 @@ jobs:
             echo "Checking IPv6 reachability via $IPV6_ADDR..."
             STATUS6=$(curl -6 -s -o /dev/null -w "%{http_code}" --max-time 10 \
               --resolve "craft-dashboard.name:443:[$IPV6_ADDR]" \
-              https://craft-dashboard.name/ 2>/dev/null)
+              https://craft-dashboard.name/ 2>/dev/null || true)
             echo "  IPv6 status: $STATUS6"
             [ "$STATUS6" = "200" ] || { echo "ERROR: craft-dashboard did not come up on IPv6 (status: $STATUS6)"; exit 1; }
             echo "craft-dashboard is up on IPv6."
@@ -260,7 +262,7 @@ jobs:
             # Verify eggcalculator.com (static site served by Caddy).
             EGG_STATUS=$(curl -4 -s -o /dev/null -w "%{http_code}" --max-time 10 \
               --resolve eggcalculator.com:443:127.0.0.1 \
-              https://eggcalculator.com/ 2>/dev/null)
+              https://eggcalculator.com/ 2>/dev/null || true)
             echo "eggcalculator.com status: $EGG_STATUS"
             [ "$EGG_STATUS" = "200" ] || { echo "ERROR: eggcalculator.com did not come up (status: $EGG_STATUS)"; exit 1; }
             echo "eggcalculator.com is up."
@@ -271,7 +273,7 @@ jobs:
             # Caddy is up and serving the domain.
             PCB_STATUS=$(curl -4 -s -o /dev/null -w "%{http_code}" --max-time 10 \
               --resolve pcbisolation.com:80:127.0.0.1 \
-              http://pcbisolation.com/ 2>/dev/null)
+              http://pcbisolation.com/ 2>/dev/null || true)
             echo "pcbisolation.com status: $PCB_STATUS"
             [[ "$PCB_STATUS" = "200" || "$PCB_STATUS" = "301" || "$PCB_STATUS" = "308" ]] || \
               { echo "ERROR: pcbisolation.com did not come up (status: $PCB_STATUS)"; exit 1; }
@@ -280,7 +282,7 @@ jobs:
             # Verify comments.pcbisolation.com (Remark42) — same pre-DNS caveat.
             REMARK_STATUS=$(curl -4 -s -o /dev/null -w "%{http_code}" --max-time 10 \
               --resolve comments.pcbisolation.com:80:127.0.0.1 \
-              http://comments.pcbisolation.com/api/v1/ping 2>/dev/null)
+              http://comments.pcbisolation.com/api/v1/ping 2>/dev/null || true)
             echo "comments.pcbisolation.com status: $REMARK_STATUS"
             [[ "$REMARK_STATUS" = "200" || "$REMARK_STATUS" = "301" || "$REMARK_STATUS" = "308" ]] || \
               { echo "ERROR: Remark42 did not come up (status: $REMARK_STATUS)"; exit 1; }
@@ -290,7 +292,7 @@ jobs:
             # as pcbisolation.com above (DNS still points at the old cPanel host).
             FLASHCANDY_STATUS=$(curl -4 -s -o /dev/null -w "%{http_code}" --max-time 10 \
               --resolve flashcandy.us:80:127.0.0.1 \
-              http://flashcandy.us/ 2>/dev/null)
+              http://flashcandy.us/ 2>/dev/null || true)
             echo "flashcandy.us status: $FLASHCANDY_STATUS"
             [[ "$FLASHCANDY_STATUS" = "200" || "$FLASHCANDY_STATUS" = "301" || "$FLASHCANDY_STATUS" = "308" ]] || \
               { echo "ERROR: flashcandy.us did not come up (status: $FLASHCANDY_STATUS)"; exit 1; }
