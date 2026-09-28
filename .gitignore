@@ -5,3 +5,6 @@ backups/*.gz
 backups/*.sql
 
 plans/
+.local/
+*.pem
+.token_cache*.json

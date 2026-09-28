@@ -32,6 +32,12 @@ Both stacks use project name `vps-infra` (inferred from `/opt/vps-infra`). Never
 
 Push to `main` triggers `.github/workflows/deploy.yml` via `appleboy/ssh-action`.
 
+To push using the scoped token minter (mints 1-hour ephemeral GitHub App token or uses `GH_TOKEN` fallback):
+```bash
+git push "$(scripts/mint_bot_token.py --print-remote-url)" main
+```
+See `docs/github-app-auth.md` for GitHub App setup.
+
 Required GitHub Actions secrets: `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `DB_PASSWORD`.
 
 The DB password is passed as a podman secret (not an env var) so it doesn't appear
