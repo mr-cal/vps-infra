@@ -3,6 +3,11 @@ name: Deploy to VPS
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'plans/**'
+      - '.gitignore'
   workflow_dispatch:
   repository_dispatch:
     types: [pcbisolation-updated, craft-dashboard-updated, egg-calculator-updated, flashcandy-updated]
