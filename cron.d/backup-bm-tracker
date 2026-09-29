@@ -1,0 +1,10 @@
+# bm-tracker SQLite database backup — daily at 04:00 UTC, 14 days retained.
+#
+# Uses the app's own `db-backup`, which calls SQLite's online backup API rather
+# than copying the file. With WAL active a plain `cp` of a live database can
+# capture a torn write, and this is the only copy of the data.
+#
+# The container name is prefixed so the find below cannot reach the other
+# services' backups in the same directory.
+0 4 * * * root /usr/bin/podman exec vps-infra_bm-tracker_1 /app/.venv/bin/bm-tracker db-backup /data/backups/bm-tracker-$(date +\%Y\%m\%d).db >> /var/log/backup-bm-tracker.log 2>&1
+0 4 * * * root find /opt/vps-infra/data/bm-tracker/backups -name 'bm-tracker-*.db' -mtime +14 -delete

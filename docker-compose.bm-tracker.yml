@@ -1,0 +1,32 @@
+# bm-tracker — the bowel-movement tracker.
+#
+# SQLite, and deliberately so. This box has 458MB of RAM shared with Caddy,
+# pgvector/pgvector:pg16, Remark42 and the llm-evaluate worker; a second
+# Postgres would be the only meaningful new consumer of it, for a database
+# holding a few thousand rows written about sixteen times a day. A SQLite file
+# costs no process at all, which is the whole argument.
+#
+# The data lives in a bind mount rather than a named volume so that the backup
+# cron on the host, and a human during an incident, can reach the file without
+# going through a container. A named podman volume sits under
+# /var/lib/containers/storage/volumes/<hash>/_data and nothing else can see it.
+services:
+  bm-tracker:
+    image: ghcr.io/mr-cal/bm-tracker:latest
+    # Its own env file, NOT the shared /opt/vps-infra/.env. That one sets
+    # DATABASE_URL to craft-dashboard's Postgres; inheriting it would point this
+    # app at the wrong database entirely, and silently. Kept separate so the two
+    # apps cannot influence each other's configuration.
+    env_file:
+      - .env.bm-tracker
+    volumes:
+      # The database and its backups. `:Z` relabels for SELinux so the container
+      # can write to a host directory without weakening the host policy.
+      - /opt/vps-infra/data/bm-tracker:/data:Z
+    networks:
+      - vps-net
+    restart: on-failure
+
+networks:
+  vps-net:
+    external: true

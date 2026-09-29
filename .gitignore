@@ -1,5 +1,11 @@
 .env
 .env.llm
+# bm-tracker's own env file. The bare `.env` pattern does not match it, and it
+# holds SESSION_SECRET.
+.env.bm-tracker
+# bm-tracker's SQLite database and its backups. This is the only copy of
+# anybody's data; it must never be committable, however local it looks.
+data/
 llm-evaluate.env
 backups/*.gz
 backups/*.sql

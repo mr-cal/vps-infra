@@ -7,6 +7,7 @@ Podman Compose setup for a DigitalOcean VPS running multiple websites behind Cad
 ```
 Internet ──► Caddy (ports 80/443, auto-TLS)
                ├──► craft-dashboard:8000 (FastAPI/Gunicorn)
+               ├──► bm-tracker:8000 (FastAPI/Gunicorn, bm-tracker.3142468.xyz)
                ├──► /srv/egg-calculator (static file_server, eggcalculator.com)
                ├──► /srv/pcbisolation (static file_server, pcbisolation.com)
                └──► vps-infra_remark42_1:8080 (comments.pcbisolation.com)
@@ -20,6 +21,7 @@ independently.
 |---|---|
 | `docker-compose.caddy.yml` | Caddy reverse proxy, static sites (eggcalculator.com, pcbisolation.com) |
 | `docker-compose.craft-dashboard.yml` | craft-dashboard app, PostgreSQL |
+| `docker-compose.bm-tracker.yml` | bm-tracker app, SQLite (no database container) |
 | `docker-compose.remark42.yml` | Remark42 self-hosted comments (comments.pcbisolation.com) |
 | `docker-compose.llm-evaluate.yml` | Continuous LLM evaluation worker for craft-dashboard (HTTP-only, no DB access) |
 

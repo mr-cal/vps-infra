@@ -40,6 +40,27 @@ See `docs/github-app-auth.md` for GitHub App setup.
 
 Required GitHub Actions secrets: `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `DB_PASSWORD`.
 
+### bm-tracker
+
+SQLite, not Postgres. The box has 458MB of RAM shared with Caddy, pgvector,
+Remark42 and llm-evaluate; a second database would be the only meaningful new
+consumer of it, for a few thousand rows written about sixteen times a day. The
+file lives in a bind mount at `/opt/vps-infra/data/bm-tracker` rather than a
+named volume so the backup cron and a human can both reach it without going
+through a container. `data/` is gitignored — it is the only copy of the data.
+
+Config is `/opt/vps-infra/.env.bm-tracker`, **not** the shared `.env`. That file
+sets `DATABASE_URL` to craft-dashboard's Postgres, and a container inheriting it
+would point itself at the wrong database.
+
+Backups run at 04:00 UTC via the app's own `bm-tracker db-backup`, which uses
+SQLite's online backup API. A plain `cp` of a live WAL database can capture a
+torn write.
+
+First user: `podman exec vps-infra_bm-tracker_1 /app/.venv/bin/bm-tracker \
+admin-create --username <name> --timezone <zone>`. Omit `--password` for a
+one-time setup link.
+
 The DB password is passed as a podman secret (not an env var) so it doesn't appear
 in `podman inspect` output or logs or in CI logs.
 

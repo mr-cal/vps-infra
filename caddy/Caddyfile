@@ -10,6 +10,11 @@ craft-dashboard.name {
 	reverse_proxy craft-dashboard:8000
 }
 
+# bm-tracker — the bowel-movement tracker, reverse proxied to its own container
+bm-tracker.3142468.xyz {
+	reverse_proxy bm-tracker:8000
+}
+
 # egg-calculator — static site served from the git submodule
 eggcalculator.com {
 	root * /srv/egg-calculator/src

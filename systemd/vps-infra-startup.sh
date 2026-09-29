@@ -10,6 +10,7 @@ cd /opt/vps-infra
 # Remove any leftover containers and stale network state (same logic as the
 # deploy workflow). Netavark leaves NETAVARK_FORWARD chains in the kernel when
 # the network is removed; clean them up so the next network create succeeds.
+podman rm -f vps-infra_bm-tracker_1 2>/dev/null || true
 podman rm -f vps-infra_craft-dashboard_1 2>/dev/null || true
 podman rm -f vps-infra_remark42_1 2>/dev/null || true
 podman rm -f vps-infra_caddy_1 2>/dev/null || true
@@ -23,7 +24,11 @@ nft delete chain ip6 filter NETAVARK_FORWARD 2>/dev/null || true
 podman network exists vps-net || podman network create --ipv6 vps-net
 
 # Start services (uses locally cached images — no pull on boot).
+install -d -m 0750 /opt/vps-infra/data/bm-tracker/backups
+[ -f /opt/vps-infra/.env.bm-tracker ] || echo "WARNING: /opt/vps-infra/.env.bm-tracker missing; bm-tracker will not start"
+
 podman-compose -f docker-compose.caddy.yml up -d
+podman-compose -f docker-compose.bm-tracker.yml up -d
 podman-compose -f docker-compose.craft-dashboard.yml up -d
 podman-compose -f docker-compose.llm-evaluate.yml up -d
 
