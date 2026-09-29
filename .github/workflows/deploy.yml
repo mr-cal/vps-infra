@@ -164,6 +164,7 @@ jobs:
             podman pull docker.io/library/caddy:2-alpine
             podman pull docker.io/pgvector/pgvector:pg16
             podman pull ghcr.io/mr-cal/craft-dashboard:latest
+            podman pull ghcr.io/mr-cal/bm-tracker:latest
 
             # Log pulled image details for traceability.
             echo "=== Image details ==="
@@ -173,6 +174,8 @@ jobs:
               --format 'pgvector:     digest={{.Digest}} created={{index .Labels "org.opencontainers.image.created"}}'
             podman image inspect ghcr.io/mr-cal/craft-dashboard:latest \
               --format 'craft-dashboard: digest={{.Digest}} created={{index .Labels "org.opencontainers.image.created"}} revision={{index .Labels "org.opencontainers.image.revision"}}'
+            podman image inspect ghcr.io/mr-cal/bm-tracker:latest \
+              --format 'bm-tracker:      digest={{.Digest}} created={{index .Labels "org.opencontainers.image.created"}} revision={{index .Labels "org.opencontainers.image.revision"}}'
 
             # Restart services.
             # Note: podman-compose will emit "no such container" errors for stop/rm
