@@ -290,9 +290,9 @@ jobs:
             echo "Waiting for bm-tracker to come up (IPv4)..."
             for i in $(seq 1 12); do
               BM_STATUS=$(curl -4 -sL -o /dev/null -w "%{http_code}" --max-time 10 \
-                --resolve bm-tracker.3142468.xyz:443:127.0.0.1 \
-                --resolve bm-tracker.3142468.xyz:80:127.0.0.1 \
-                https://bm-tracker.3142468.xyz/ 2>/dev/null || true)
+                --resolve 3142468.xyz:443:127.0.0.1 \
+                --resolve 3142468.xyz:80:127.0.0.1 \
+                https://3142468.xyz/ 2>/dev/null || true)
               echo "  attempt $i: $BM_STATUS"
               [ "$BM_STATUS" = "200" ] && break
               sleep 5

@@ -10,8 +10,11 @@ craft-dashboard.name {
 	reverse_proxy craft-dashboard:8000
 }
 
-# bm-tracker — the bowel-movement tracker, reverse proxied to its own container
-bm-tracker.3142468.xyz {
+# bm-tracker — the bowel-movement tracker, reverse proxied to its own
+# container. Served at the bare domain rather than a subdomain: this is the
+# whole site, not one of several, and the apex A/AAAA records already point
+# here so there is no DNS to add.
+3142468.xyz {
 	reverse_proxy bm-tracker:8000
 }
 

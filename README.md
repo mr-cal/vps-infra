@@ -7,7 +7,7 @@ Podman Compose setup for a DigitalOcean VPS running multiple websites behind Cad
 ```
 Internet ──► Caddy (ports 80/443, auto-TLS)
                ├──► craft-dashboard:8000 (FastAPI/Gunicorn)
-               ├──► bm-tracker:8000 (FastAPI/Gunicorn, bm-tracker.3142468.xyz)
+               ├──► bm-tracker:8000 (FastAPI/Gunicorn, 3142468.xyz)
                ├──► /srv/egg-calculator (static file_server, eggcalculator.com)
                ├──► /srv/pcbisolation (static file_server, pcbisolation.com)
                └──► vps-infra_remark42_1:8080 (comments.pcbisolation.com)
