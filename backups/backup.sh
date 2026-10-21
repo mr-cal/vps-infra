@@ -11,7 +11,7 @@
 set -euo pipefail
 
 BACKUP_DIR="$(cd "$(dirname "$0")" && pwd)"
-RETENTION_DAYS=14
+RETENTION_DAYS=5
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 DUMP_FILE="${BACKUP_DIR}/craft_dashboard_${TIMESTAMP}.sql.gz"
 ENCRYPTED_FILE="${DUMP_FILE}.gpg"

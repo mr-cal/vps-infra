@@ -100,48 +100,12 @@ This is the production data volume. Do not confuse it with `vps-infra_remark42_d
 **Remark42 NOTIFY_TYPE**: When disabling notifications, set `NOTIFY_TYPE=none` not `NOTIFY_TYPE=`
 (empty string). Remark42 rejects empty strings; valid values are `none`, `telegram`, `email`, `slack`.
 
-**Restarting a single container without removing the network** (e.g., Remark42 restart to
-change env vars): You cannot simply `podman rm -f` + re-run because Netavark will hit
-"Chain already exists". Instead: flush+delete the nft chains (this briefly interrupts
-existing container networking), then use `podman start` on the pre-created container:
-```bash
-# Edit /tmp/docker-compose.remark42.no-notify.yml with the desired env, then:
-podman rm -f vps-infra_remark42_1
-cd /opt/vps-infra
-podman-compose -f /tmp/docker-compose.remark42.no-notify.yml up -d 2>/dev/null || true
-# Container will be in "Created" state. Fix nft:
-nft flush chain ip filter NETAVARK_FORWARD 2>/dev/null || true
-nft delete chain ip filter NETAVARK_FORWARD 2>/dev/null || true
-nft flush chain ip6 filter NETAVARK_FORWARD 2>/dev/null || true
-nft delete chain ip6 filter NETAVARK_FORWARD 2>/dev/null || true
-podman start vps-infra_remark42_1
-sleep 5
-# Re-add nft rules:
-SUBNET=$(podman network inspect vps-net --format '{{range .Subnets}}{{.Subnet}} {{end}}' | tr ' ' '\n' | grep -v ':' | head -1)
-IPV6_SUBNET=$(podman network inspect vps-net --format '{{range .Subnets}}{{.Subnet}} {{end}}' | tr ' ' '\n' | grep ':' | head -1)
-nft insert rule ip filter NETAVARK_FORWARD ip daddr "$SUBNET" ct state new accept 2>/dev/null || true
-nft insert rule ip6 filter NETAVARK_FORWARD ip6 daddr "$IPV6_SUBNET" ct state new accept 2>/dev/null || true
-```
+**Persistent Shared Network**: The `vps-net` bridge network is persistent (`podman network exists vps-net || podman network create --ipv6 vps-net`).
+Containers can be individually restarted or updated without removing the network or stopping other containers. Do not destroy `vps-net` or flush `NETAVARK_FORWARD` chains during routine redeploys.
 
- (`podman-forward-fix.service`) inserts
-missing nftables rules on boot that allow new inbound connections to reach containers.
-Without it, external traffic to ports 80/443 is silently dropped even with the DO
-firewall open. If containers are unreachable externally after a reboot, check
-`systemctl status podman-forward-fix.service`. The deploy script also inserts these
-rules after starting containers. The service runs `/usr/local/sbin/podman-forward-fix.sh`
-which adds both IPv4 (`ip filter NETAVARK_FORWARD`) and IPv6 (`ip6 filter NETAVARK_FORWARD`)
-rules.
+**Static Sites Zero Downtime**: `eggcalculator.com`, `pcbisolation.com`, and `flashcandy.us` are served from git submodules mounted directly into Caddy (`/srv`). Updating a submodule requires no container recreation or Caddy reload.
 
-**Netavark "Chain already exists" (Podman 4.9.3 bug)**: When a container joins
-`vps-net`, Netavark creates `NETAVARK_FORWARD` chains in the kernel's ip and ip6 filter
-tables. When the network is removed, Netavark leaves the chains behind. On the next
-deploy, the first container fails to start because Netavark tries to create
-`NETAVARK_FORWARD` and it already exists. Fix: after `podman network rm`, explicitly
-delete both chains with `nft flush/delete chain ip filter NETAVARK_FORWARD` and
-`nft flush/delete chain ip6 filter NETAVARK_FORWARD`. Also: craft-dashboard has
-`--requires=postgres`, so containers must be removed in reverse dependency order
-(craft-dashboard → caddy → postgres) before `podman network rm` will succeed.
-See the restart procedure below.
+**Caddy Zero Downtime**: Caddy configuration changes can be reloaded without dropping active connections via `podman exec vps-infra_caddy_1 caddy reload --config /etc/caddy/Caddyfile`.
 
 **IPv6 requires ip6table_nat kernel module**: The kernel modules `ip6table_nat` and
 `ip6table_filter` must be loaded for Netavark's ip6 NAT/DNAT rules to work. These are
@@ -197,28 +161,31 @@ curl -s -o /dev/null -w "%{http_code}" \
   https://eggcalculator.com/
 # Expected: 200
 
-# Restart all services — remove in reverse dependency order, delete the
-# stale NETAVARK_FORWARD chains (ip and ip6), then recreate network and start containers.
+# Restart individual service (e.g. craft-dashboard, bm-tracker, remark42)
+podman-compose -p vps-infra -f docker-compose.craft-dashboard.yml up -d --force-recreate
+podman-compose -p vps-infra -f docker-compose.bm-tracker.yml up -d --force-recreate
+
+# Reload Caddy configuration with 0 downtime
+podman exec vps-infra_caddy_1 caddy reload --config /etc/caddy/Caddyfile
+
+# Full reset of all services (only if necessary)
+podman rm -f vps-infra_bm-tracker_1 2>/dev/null || true
 podman rm -f vps-infra_craft-dashboard_1 2>/dev/null || true
 podman rm -f vps-infra_remark42_1 2>/dev/null || true
 podman rm -f vps-infra_caddy_1 2>/dev/null || true
 podman rm -f vps-infra_postgres_1 2>/dev/null || true
 podman rm -f vps-infra_llm-evaluate_1 2>/dev/null || true
-podman network rm vps-net 2>/dev/null || true
-nft flush chain ip filter NETAVARK_FORWARD 2>/dev/null || true
-nft delete chain ip filter NETAVARK_FORWARD 2>/dev/null || true
-nft flush chain ip6 filter NETAVARK_FORWARD 2>/dev/null || true
-nft delete chain ip6 filter NETAVARK_FORWARD 2>/dev/null || true
-podman network create --ipv6 vps-net
+podman network exists vps-net || podman network create --ipv6 vps-net
 cd /opt/vps-infra
-podman-compose -f docker-compose.caddy.yml up -d
-podman-compose -f docker-compose.craft-dashboard.yml up -d
-podman-compose -f docker-compose.llm-evaluate.yml up -d
-podman-compose -f /tmp/docker-compose.remark42.rendered.yml up -d
+podman-compose -p vps-infra -f docker-compose.caddy.yml up -d
+podman-compose -p vps-infra -f docker-compose.bm-tracker.yml up -d
+podman-compose -p vps-infra -f docker-compose.craft-dashboard.yml up -d
+podman-compose -p vps-infra -f docker-compose.llm-evaluate.yml up -d
+podman-compose -p vps-infra -f /tmp/docker-compose.remark42.rendered.yml up -d
 SUBNET=$(podman network inspect vps-net --format '{{range .Subnets}}{{.Subnet}} {{end}}' | tr ' ' '\n' | grep -v ':' | head -1)
 IPV6_SUBNET=$(podman network inspect vps-net --format '{{range .Subnets}}{{.Subnet}} {{end}}' | tr ' ' '\n' | grep ':' | head -1)
-nft insert rule ip filter NETAVARK_FORWARD ip daddr "$SUBNET" ct state new accept
-nft insert rule ip6 filter NETAVARK_FORWARD ip6 daddr "$IPV6_SUBNET" ct state new accept
+nft insert rule ip filter NETAVARK_FORWARD ip daddr "$SUBNET" ct state new accept 2>/dev/null || true
+nft insert rule ip6 filter NETAVARK_FORWARD ip6 daddr "$IPV6_SUBNET" ct state new accept 2>/dev/null || true
 # Verify
 curl -s -o /dev/null -w "%{http_code}" https://craft-dashboard.name/
 curl -s -o /dev/null -w "%{http_code}" https://eggcalculator.com/

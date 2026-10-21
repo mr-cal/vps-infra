@@ -36,6 +36,10 @@ jobs:
           script: |
             set -euo pipefail
 
+            EVENT_NAME="${{ github.event_name }}"
+            EVENT_TYPE="${{ github.event.action }}"
+            echo "Deploy triggered: event=${EVENT_NAME}, type=${EVENT_TYPE}"
+
             if ! command -v podman-compose >/dev/null 2>&1; then
               apt install -y podman podman-compose
             fi
@@ -45,11 +49,195 @@ jobs:
             fi
 
             cd /opt/vps-infra
-            # The server has submodule.recurse=true globally, so git pull also
-            # updates submodules — before any cleanup can run. Clean stale
-            # rebase dirs first, then pull without recurse, then update explicitly.
+
+            # Function to update submodules cleanly without rebase directory errors
+            update_submodule() {
+              local sub="$1"
+              echo "Updating submodule: $sub"
+              find ".git/modules/$sub" -name 'rebase-merge' -type d -exec rm -rf {} + 2>/dev/null || true
+              find ".git/modules/$sub" -name 'rebase-apply' -type d -exec rm -rf {} + 2>/dev/null || true
+              git submodule update --checkout --remote --init -- "$sub"
+            }
+
+            # Helper verification functions
+            verify_egg_calculator() {
+              echo "Verifying eggcalculator.com..."
+              local status
+              status=$(curl -4 -s -o /dev/null -w "%{http_code}" --max-time 10 \
+                --resolve eggcalculator.com:443:127.0.0.1 \
+                https://eggcalculator.com/ 2>/dev/null || true)
+              echo "eggcalculator.com status: $status"
+              [ "$status" = "200" ] || { echo "ERROR: eggcalculator.com did not come up (status: $status)"; exit 1; }
+            }
+
+            verify_pcbisolation() {
+              echo "Verifying pcbisolation.com..."
+              local status
+              status=$(curl -4 -s -o /dev/null -w "%{http_code}" --max-time 10 \
+                --resolve pcbisolation.com:80:127.0.0.1 \
+                http://pcbisolation.com/ 2>/dev/null || true)
+              echo "pcbisolation.com status: $status"
+              [[ "$status" = "200" || "$status" = "301" || "$status" = "308" ]] || \
+                { echo "ERROR: pcbisolation.com did not come up (status: $status)"; exit 1; }
+            }
+
+            verify_flashcandy() {
+              echo "Verifying flashcandy.us..."
+              local status
+              status=$(curl -4 -s -o /dev/null -w "%{http_code}" --max-time 10 \
+                --resolve flashcandy.us:80:127.0.0.1 \
+                http://flashcandy.us/ 2>/dev/null || true)
+              echo "flashcandy.us status: $status"
+              [[ "$status" = "200" || "$status" = "301" || "$status" = "308" ]] || \
+                { echo "ERROR: flashcandy.us did not come up (status: $status)"; exit 1; }
+            }
+
+            verify_bm_tracker() {
+              echo "Waiting for bm-tracker to come up (IPv4)..."
+              local bm_status=""
+              for i in $(seq 1 12); do
+                bm_status=$(curl -4 -sL -o /dev/null -w "%{http_code}" --max-time 10 \
+                  --resolve 3142468.xyz:443:127.0.0.1 \
+                  --resolve 3142468.xyz:80:127.0.0.1 \
+                  https://3142468.xyz/ 2>/dev/null || true)
+                echo "  attempt $i: $bm_status"
+                [ "$bm_status" = "200" ] && break
+                sleep 5
+              done
+              [ "$bm_status" = "200" ] || { echo "ERROR: bm-tracker did not come up (last status: $bm_status)"; exit 1; }
+              echo "bm-tracker is up."
+            }
+
+            verify_craft_dashboard() {
+              echo "Waiting for craft-dashboard to come up (IPv4)..."
+              local status=""
+              for i in $(seq 1 12); do
+                status=$(curl -4 -s -o /dev/null -w "%{http_code}" --max-time 10 \
+                  --resolve craft-dashboard.name:443:127.0.0.1 \
+                  --resolve craft-dashboard.name:80:127.0.0.1 \
+                  https://craft-dashboard.name/ 2>/dev/null || true)
+                echo "  attempt $i: $status"
+                [ "$status" = "200" ] && break
+                sleep 5
+              done
+              [ "$status" = "200" ] || { echo "ERROR: craft-dashboard did not come up on IPv4 (last status: $status)"; exit 1; }
+              echo "craft-dashboard is up on IPv4."
+
+              local ipv6_addr
+              ipv6_addr=$(ip -6 addr show eth0 scope global | awk '/inet6/{print $2}' | cut -d/ -f1 | head -1)
+              echo "Checking IPv6 reachability via $ipv6_addr..."
+              local status6
+              status6=$(curl -6 -s -o /dev/null -w "%{http_code}" --max-time 10 \
+                --resolve "craft-dashboard.name:443:[$ipv6_addr]" \
+                https://craft-dashboard.name/ 2>/dev/null || true)
+              echo "  IPv6 status: $status6"
+              [ "$status6" = "200" ] || { echo "ERROR: craft-dashboard did not come up on IPv6 (status: $status6)"; exit 1; }
+              echo "craft-dashboard is up on IPv6."
+            }
+
+            verify_remark42() {
+              echo "Verifying comments.pcbisolation.com..."
+              local status
+              status=$(curl -4 -s -o /dev/null -w "%{http_code}" --max-time 10 \
+                --resolve comments.pcbisolation.com:80:127.0.0.1 \
+                http://comments.pcbisolation.com/api/v1/ping 2>/dev/null || true)
+              echo "comments.pcbisolation.com status: $status"
+              [[ "$status" = "200" || "$status" = "301" || "$status" = "308" ]] || \
+                { echo "ERROR: Remark42 did not come up (status: $status)"; exit 1; }
+              echo "comments.pcbisolation.com is up."
+            }
+
+            apply_firewall_rules() {
+              # Ensure vps-net subnets have forward rules in NETAVARK_FORWARD
+              local subnet ipv6_subnet
+              subnet=$(podman network inspect vps-net --format '{{range .Subnets}}{{.Subnet}} {{end}}' | tr ' ' '\n' | grep -v ':' | head -1)
+              ipv6_subnet=$(podman network inspect vps-net --format '{{range .Subnets}}{{.Subnet}} {{end}}' | tr ' ' '\n' | grep ':' | head -1)
+              nft insert rule ip filter NETAVARK_FORWARD ip daddr "$subnet" ct state new accept 2>/dev/null || true
+              nft insert rule ip6 filter NETAVARK_FORWARD ip6 daddr "$ipv6_subnet" ct state new accept 2>/dev/null || true
+
+              # Fix Netavark's broken IPv6 DNAT rules pointing to Caddy
+              if podman ps --filter name=vps-infra_caddy_1 --filter status=running --format '{{.Names}}' | grep -q vps-infra_caddy_1; then
+                local caddy_ipv6 public_ipv6
+                caddy_ipv6=$(podman inspect vps-infra_caddy_1 --format '{{range .NetworkSettings.Networks}}{{.GlobalIPv6Address}}{{end}}')
+                public_ipv6=$(ip -6 addr show eth0 | awk '/inet6.*global/{print $2}' | cut -d/ -f1 | head -1)
+                for CHAIN in PREROUTING OUTPUT; do
+                  while true; do
+                    local line
+                    line=$(ip6tables -t nat -L "$CHAIN" --line-numbers -n | awk '/vps-infra-ipv6-dnat/{print $1; exit}')
+                    [ -z "$line" ] && break
+                    ip6tables -t nat -D "$CHAIN" "$line"
+                  done
+                done
+                for PORT in 80 443; do
+                  ip6tables -t nat -I PREROUTING 1 -p tcp --dport "$PORT" \
+                    -m comment --comment "vps-infra-ipv6-dnat" \
+                    -j DNAT --to-destination ["$caddy_ipv6"]:"$PORT"
+                  ip6tables -t nat -I OUTPUT 1 -p tcp -d "$public_ipv6" --dport "$PORT" \
+                    -m comment --comment "vps-infra-ipv6-dnat" \
+                    -j DNAT --to-destination ["$caddy_ipv6"]:"$PORT"
+                done
+              fi
+            }
+
+            # Handle repository_dispatch events (zero-downtime / isolated updates)
+            if [ "$EVENT_NAME" = "repository_dispatch" ]; then
+              case "$EVENT_TYPE" in
+                egg-calculator-updated)
+                  update_submodule static-sites/egg-calculator
+                  verify_egg_calculator
+                  exit 0
+                  ;;
+                pcbisolation-updated)
+                  update_submodule static-sites/pcbisolation
+                  verify_pcbisolation
+                  exit 0
+                  ;;
+                flashcandy-updated)
+                  update_submodule static-sites/flashcandy
+                  verify_flashcandy
+                  exit 0
+                  ;;
+                bm-tracker-updated)
+                  git checkout -- . 2>/dev/null || true
+                  git pull --no-recurse-submodules origin main 2>/dev/null || true
+                  podman pull ghcr.io/mr-cal/bm-tracker:latest
+                  podman-compose -p vps-infra -f docker-compose.bm-tracker.yml up -d --force-recreate
+                  podman ps --filter name=vps-infra_bm-tracker_1 --filter status=running --format '{{.Names}}' | grep -q vps-infra_bm-tracker_1
+                  apply_firewall_rules
+                  verify_bm_tracker
+                  exit 0
+                  ;;
+                craft-dashboard-updated)
+                  git checkout -- . 2>/dev/null || true
+                  git pull --no-recurse-submodules origin main 2>/dev/null || true
+                  podman pull ghcr.io/mr-cal/craft-dashboard:latest
+                  podman-compose -p vps-infra -f docker-compose.craft-dashboard.yml up -d --force-recreate
+                  podman-compose -p vps-infra -f docker-compose.llm-evaluate.yml up -d --force-recreate
+                  podman ps --filter name=vps-infra_craft-dashboard_1 --filter status=running --format '{{.Names}}' | grep -q vps-infra_craft-dashboard_1
+                  podman ps --filter name=vps-infra_llm-evaluate_1 --filter status=running --format '{{.Names}}' | grep -q vps-infra_llm-evaluate_1
+                  apply_firewall_rules
+                  verify_craft_dashboard
+                  exit 0
+                  ;;
+                *)
+                  echo "Unknown repository_dispatch event: $EVENT_TYPE. Falling back to full check."
+                  ;;
+              esac
+            fi
+
+            # For push to main or workflow_dispatch:
+            # Capture the commit range to detect changed paths
+            BEFORE_SHA="${{ github.event.before || '' }}"
+            AFTER_SHA="${{ github.sha }}"
+            DIFF_FILES=""
+            if [ -n "$BEFORE_SHA" ] && [ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ]; then
+              DIFF_FILES=$(git diff --name-only "$BEFORE_SHA" "$AFTER_SHA" 2>/dev/null || true)
+            fi
+
+            # Clean stale rebase dirs first, then pull without recurse, then update explicitly.
             find .git/modules -name 'rebase-merge' -type d -exec rm -rf {} + 2>/dev/null || true
             find .git/modules -name 'rebase-apply' -type d -exec rm -rf {} + 2>/dev/null || true
+            git checkout -- . 2>/dev/null || true
             git pull --no-recurse-submodules origin main
             git submodule update --checkout --remote --init --recursive
 
@@ -65,15 +253,10 @@ jobs:
             systemctl daemon-reload
             systemctl enable vps-infra-startup.service
 
-            # The bm-tracker database lives here. Created, never wiped: this
-            # directory is the only copy of anybody's data, so nothing in the
-            # deploy path may remove it.
+            # The bm-tracker database lives here.
             install -d -m 0750 /opt/vps-infra/data/bm-tracker
             install -d -m 0750 /opt/vps-infra/backups
 
-            # The bm-tracker env file is a one-time manual step like /opt/
-            # vps-infra/.env — it holds SESSION_SECRET, which must not be
-            # generated by a deploy that runs unattended.
             if [ ! -f /opt/vps-infra/.env.bm-tracker ]; then
               echo "ERROR: /opt/vps-infra/.env.bm-tracker is missing. Copy .env.bm-tracker.example, set SESSION_SECRET to 32+ random bytes, and chmod 600 it."
               exit 1
@@ -86,32 +269,19 @@ jobs:
             install -m 0644 cron.d/backup-craft-dashboard /etc/cron.d/backup-craft-dashboard
             chmod 0755 backups/backup.sh
 
-            # Install/update logrotate policy for the collect-data cron log
-            # (now runs every 10 minutes instead of every 4 hours, so it grows
-            # much faster and needs rotation to avoid filling the disk).
             install -m 0644 logrotate.d/collect-data /etc/logrotate.d/collect-data
             install -m 0644 logrotate.d/commit-scanner /etc/logrotate.d/commit-scanner
 
-            # Install/update disk-hygiene and Remark42 backup cron jobs. Added
-            # after the 2026-07-23 incident where an unpruned image backlog
-            # filled the disk and wiped Remark42's comment data with no
-            # backup to recover from (see pcbisolation's
-            # plans/2026-07-23-remark42-comment-backup-recovery.md).
             install -m 0644 cron.d/prune-images /etc/cron.d/prune-images
             install -m 0644 cron.d/disk-space-check /etc/cron.d/disk-space-check
             install -m 0644 cron.d/backup-remark42 /etc/cron.d/backup-remark42
             install -m 0644 cron.d/backup-bm-tracker /etc/cron.d/backup-bm-tracker
             chmod 0755 backups/check_disk_space.sh backups/backup_remark42.sh
 
-            # Cap journald's persistent log size (911MB with no limit was a
-            # direct contributor to the disk-full incident above).
             mkdir -p /etc/systemd/journald.conf.d
             install -m 0644 systemd/journald-vps-infra.conf /etc/systemd/journald.conf.d/vps-infra.conf
             systemctl restart systemd-journald
 
-            # Write shared secrets for the disk-space-check and
-            # backup_remark42 cron scripts. Root-only — never logged, never
-            # committed (this file lives only on the VPS).
             install -d -m 0700 /etc/vps-infra
             cat > /etc/vps-infra/secrets.env <<EOF
             RESEND_API_KEY=${RESEND_API_KEY}
@@ -123,89 +293,63 @@ jobs:
             EOF
             chmod 0600 /etc/vps-infra/secrets.env
 
-            # Remove a stale workaround from an earlier (incorrect) diagnosis: it was
-            # believed the droplet's IPv6 uplink was broken at the TLS layer, so a
-            # gai.conf precedence rule was added to prefer IPv4 for host lookups. The
-            # real root cause was the OUTPUT DNAT rule below hijacking all outbound
-            # IPv6 HTTPS traffic (see its comment). No gai.conf changes are needed now
-            # that the DNAT rule is correctly scoped. Clean it up if present.
             sed -i '/# vps-infra: prefer IPv4 (see AGENTS.md Known Quirks)/,+1d' /etc/gai.conf 2>/dev/null || true
 
-            # Recreate the shared network on every deploy.
-            # The root cause of "iptables: Chain already exists": Netavark creates
-            # NETAVARK_FORWARD chains in the kernel's ip and ip6 filter tables when
-            # the first container joins a network. When the network is removed,
-            # Netavark leaves the chains behind (it won't delete them if they contain
-            # foreign rules). On the next deploy, the first container can't join
-            # because Netavark tries to create NETAVARK_FORWARD and it already exists.
-            #
-            # Fix: explicitly delete NETAVARK_FORWARD before recreating the network.
-            # Also remove containers in reverse dependency order — craft-dashboard
-            # has --requires=postgres, so Podman won't remove postgres while
-            # craft-dashboard exists, even with --force.
-            podman rm -f vps-infra_bm-tracker_1 2>/dev/null || true
-            podman rm -f vps-infra_craft-dashboard_1 2>/dev/null || true
-            podman rm -f vps-infra_remark42_1 2>/dev/null || true
-            podman rm -f vps-infra_caddy_1 2>/dev/null || true
-            podman rm -f vps-infra_postgres_1 2>/dev/null || true
-            podman rm -f vps-infra_llm-evaluate_1 2>/dev/null || true
-            podman network rm vps-net 2>/dev/null || true
-            nft flush chain ip filter NETAVARK_FORWARD 2>/dev/null || true
-            nft delete chain ip filter NETAVARK_FORWARD 2>/dev/null || true
-            nft flush chain ip6 filter NETAVARK_FORWARD 2>/dev/null || true
-            nft delete chain ip6 filter NETAVARK_FORWARD 2>/dev/null || true
-            podman network create --ipv6 vps-net
+            # Ensure persistent network exists
+            podman network exists vps-net || podman network create --ipv6 vps-net
 
             # Create or update the DB password podman secret.
             podman secret rm db_password 2>/dev/null || true
             printf '%s' "$DB_PASSWORD" | podman secret create db_password -
 
-            # Pull images explicitly — podman-compose swallows pull exit codes.
-            podman pull docker.io/library/caddy:2-alpine
-            podman pull docker.io/pgvector/pgvector:pg16
-            podman pull ghcr.io/mr-cal/craft-dashboard:latest
-            podman pull ghcr.io/mr-cal/bm-tracker:latest
+            # Check if only static-sites changed in this push
+            ONLY_STATIC=false
+            if [ -n "$DIFF_FILES" ]; then
+              NON_STATIC=$(echo "$DIFF_FILES" | grep -v '^static-sites/' || true)
+              if [ -z "$NON_STATIC" ]; then
+                ONLY_STATIC=true
+              fi
+            fi
 
-            # Log pulled image details for traceability.
-            echo "=== Image details ==="
-            podman image inspect docker.io/library/caddy:2-alpine \
-              --format 'caddy:        digest={{.Digest}} created={{index .Labels "org.opencontainers.image.created"}}'
-            podman image inspect docker.io/pgvector/pgvector:pg16 \
-              --format 'pgvector:     digest={{.Digest}} created={{index .Labels "org.opencontainers.image.created"}}'
-            podman image inspect ghcr.io/mr-cal/craft-dashboard:latest \
-              --format 'craft-dashboard: digest={{.Digest}} created={{index .Labels "org.opencontainers.image.created"}} revision={{index .Labels "org.opencontainers.image.revision"}}'
-            podman image inspect ghcr.io/mr-cal/bm-tracker:latest \
-              --format 'bm-tracker:      digest={{.Digest}} created={{index .Labels "org.opencontainers.image.created"}} revision={{index .Labels "org.opencontainers.image.revision"}}'
+            if [ "$ONLY_STATIC" = "true" ]; then
+              echo "Only static site submodules changed; skipping container recreation."
+            else
+              # Pull images explicitly
+              podman pull docker.io/library/caddy:2-alpine
+              podman pull docker.io/pgvector/pgvector:pg16
+              podman pull ghcr.io/mr-cal/craft-dashboard:latest
+              podman pull ghcr.io/mr-cal/bm-tracker:latest
 
-            # Restart services.
-            # Note: podman-compose will emit "no such container" errors for stop/rm
-            # when containers were already removed above. This is expected — podman-compose
-            # tries to recreate containers whose config hash changed and errors on the
-            # stop/rm of already-removed containers before successfully creating new ones.
-            podman-compose -p vps-infra -f docker-compose.caddy.yml up -d
-            podman-compose -p vps-infra -f docker-compose.bm-tracker.yml up -d
-            podman-compose -p vps-infra -f docker-compose.craft-dashboard.yml up -d
-            podman-compose -p vps-infra -f docker-compose.llm-evaluate.yml up -d
+              # Render Remark42 compose
+              sed \
+                -e "s/REPLACE_WITH_OPENSSL_OUTPUT/$REMARK_SECRET/" \
+                -e "s/REPLACE_WITH_RESEND_API_KEY/$RESEND_API_KEY/" \
+                -e "s/REPLACE_WITH_AKISMET_KEY/$AKISMET_KEY/" \
+                -e "s/REPLACE_WITH_ADMIN_PASSWORD/$REMARK_ADMIN_PASSWD/" \
+                -e "s/REPLACE_WITH_ADMIN_EMAIL/$REMARK_ADMIN_EMAIL/" \
+                docker-compose.remark42.yml > /tmp/docker-compose.remark42.rendered.yml
 
-            # Start Remark42 with secrets substituted at deploy time. The rendered
-            # file lives in /tmp (it contains secrets and must never land in the
-            # git checkout), so we pass -p explicitly: podman-compose otherwise
-            # derives the project name from the compose file's own directory,
-            # which would make it "tmp" instead of "vps-infra" and create a
-            # throwaway "tmp_remark42_data" volume instead of reusing the real
-            # "vps-infra_remark42_data" one on every deploy that recreates the
-            # container.
-            sed \
-              -e "s/REPLACE_WITH_OPENSSL_OUTPUT/$REMARK_SECRET/" \
-              -e "s/REPLACE_WITH_RESEND_API_KEY/$RESEND_API_KEY/" \
-              -e "s/REPLACE_WITH_AKISMET_KEY/$AKISMET_KEY/" \
-              -e "s/REPLACE_WITH_ADMIN_PASSWORD/$REMARK_ADMIN_PASSWD/" \
-              -e "s/REPLACE_WITH_ADMIN_EMAIL/$REMARK_ADMIN_EMAIL/" \
-              docker-compose.remark42.yml > /tmp/docker-compose.remark42.rendered.yml
-            podman-compose -p vps-infra -f /tmp/docker-compose.remark42.rendered.yml up -d
+              # Check if Caddy container is already running
+              CADDY_WAS_RUNNING=false
+              if podman ps --filter name=vps-infra_caddy_1 --filter status=running --format '{{.Names}}' | grep -q vps-infra_caddy_1; then
+                CADDY_WAS_RUNNING=true
+              fi
 
-            # Verify containers are running — podman-compose swallows up exit codes
-            # and podman wait exits 0 regardless of the container exit code.
+              # Start / update services
+              podman-compose -p vps-infra -f docker-compose.caddy.yml up -d
+              podman-compose -p vps-infra -f docker-compose.bm-tracker.yml up -d
+              podman-compose -p vps-infra -f docker-compose.craft-dashboard.yml up -d
+              podman-compose -p vps-infra -f docker-compose.llm-evaluate.yml up -d
+              podman-compose -p vps-infra -f /tmp/docker-compose.remark42.rendered.yml up -d
+
+              # If Caddy was already running, reload configuration cleanly with 0 downtime
+              if [ "$CADDY_WAS_RUNNING" = "true" ]; then
+                echo "Reloading Caddy configuration with 0 downtime..."
+                podman exec vps-infra_caddy_1 caddy reload --config /etc/caddy/Caddyfile || true
+              fi
+            fi
+
+            # Verify containers are running
             podman ps --filter name=vps-infra_caddy_1 --filter status=running --format '{{.Names}}' | grep -q vps-infra_caddy_1
             podman ps --filter name=vps-infra_postgres_1 --filter status=running --format '{{.Names}}' | grep -q vps-infra_postgres_1
             podman ps --filter name=vps-infra_craft-dashboard_1 --filter status=running --format '{{.Names}}' | grep -q vps-infra_craft-dashboard_1
@@ -213,131 +357,13 @@ jobs:
             podman ps --filter name=vps-infra_llm-evaluate_1 --filter status=running --format '{{.Names}}' | grep -q vps-infra_llm-evaluate_1
             podman ps --filter name=vps-infra_bm-tracker_1 --filter status=running --format '{{.Names}}' | grep -q vps-infra_bm-tracker_1
 
-            # Podman's NETAVARK_FORWARD chain is created when the first container
-            # starts. Add the missing rules that allow new inbound connections.
-            # Use the actual subnets assigned to vps-net (they may change when the
-            # network is recreated).
-            SUBNET=$(podman network inspect vps-net --format '{{range .Subnets}}{{.Subnet}} {{end}}' | tr ' ' '\n' | grep -v ':' | head -1)
-            IPV6_SUBNET=$(podman network inspect vps-net --format '{{range .Subnets}}{{.Subnet}} {{end}}' | tr ' ' '\n' | grep ':' | head -1)
-            nft insert rule ip filter NETAVARK_FORWARD ip daddr "$SUBNET" ct state new accept 2>/dev/null || true
-            nft insert rule ip6 filter NETAVARK_FORWARD ip6 daddr "$IPV6_SUBNET" ct state new accept 2>/dev/null || true
+            # Apply firewall / DNAT rules
+            apply_firewall_rules
 
-            # Fix netavark's broken IPv6 DNAT rules. Netavark generates rules with
-            # 'ip6 daddr ::' (the unspecified address), which never matches real traffic.
-            # Add correct rules to both:
-            #   PREROUTING: for inbound traffic from external IPv6 clients (no destination
-            #     filter needed -- only packets genuinely addressed to this host arrive here)
-            #   OUTPUT: hairpin traffic the host sends to its OWN public IPv6 address (e.g.
-            #     the deploy health check below). This MUST be scoped with -d "$PUBLIC_IPV6".
-            #     A previous version matched --dport with no destination filter, which
-            #     hijacked EVERY outbound IPv6 HTTPS/HTTP connection from the host itself
-            #     (snap, apt, curl to any external site) -- not just the intended hairpin.
-            #     Caddy doesn't recognize SNI for unrelated external hosts, so their TLS
-            #     handshakes failed with "tlsv1 alert internal error". This was the actual
-            #     root cause of "broken outbound IPv6" -- not a datacenter network issue.
-            # Use a comment tag to safely delete stale rules from previous deploys before
-            # inserting fresh ones pointing at the current container's IPv6 address. Stale
-            # rules are removed by line number (not by rule spec) since the DNAT target
-            # changes every time the caddy container is recreated and a spec-based delete
-            # without --to-destination silently fails to match, leaking rules on every deploy.
-            CADDY_IPV6=$(podman inspect vps-infra_caddy_1 \
-              --format '{{range .NetworkSettings.Networks}}{{.GlobalIPv6Address}}{{end}}')
-            PUBLIC_IPV6=$(ip -6 addr show eth0 | awk '/inet6.*global/{print $2}' | cut -d/ -f1 | head -1)
-            for CHAIN in PREROUTING OUTPUT; do
-              while true; do
-                LINE=$(ip6tables -t nat -L "$CHAIN" --line-numbers -n | awk '/vps-infra-ipv6-dnat/{print $1; exit}')
-                [ -z "$LINE" ] && break
-                ip6tables -t nat -D "$CHAIN" "$LINE"
-              done
-            done
-            for PORT in 80 443; do
-              ip6tables -t nat -I PREROUTING 1 -p tcp --dport "$PORT" \
-                -m comment --comment "vps-infra-ipv6-dnat" \
-                -j DNAT --to-destination ["$CADDY_IPV6"]:"$PORT"
-              ip6tables -t nat -I OUTPUT 1 -p tcp -d "$PUBLIC_IPV6" --dport "$PORT" \
-                -m comment --comment "vps-infra-ipv6-dnat" \
-                -j DNAT --to-destination ["$CADDY_IPV6"]:"$PORT"
-            done
-
-            # Verify IPv4 reachability. The check runs on the VPS, so use --resolve
-            # to avoid routing through the external IP (which times out when
-            # connecting to self). Poll up to 60s to allow for DB migrations.
-            echo "Waiting for craft-dashboard to come up (IPv4)..."
-            for i in $(seq 1 12); do
-              STATUS=$(curl -4 -s -o /dev/null -w "%{http_code}" --max-time 10 \
-                --resolve craft-dashboard.name:443:127.0.0.1 \
-                --resolve craft-dashboard.name:80:127.0.0.1 \
-                https://craft-dashboard.name/ 2>/dev/null || true)
-              echo "  attempt $i: $STATUS"
-              [ "$STATUS" = "200" ] && break
-              sleep 5
-            done
-            [ "$STATUS" = "200" ] || { echo "ERROR: craft-dashboard did not come up on IPv4 (last status: $STATUS)"; exit 1; }
-            echo "craft-dashboard is up on IPv4."
-
-            # Verify IPv6 reachability using the server's public IPv6 address.
-            IPV6_ADDR=$(ip -6 addr show eth0 scope global | awk '/inet6/{print $2}' | cut -d/ -f1 | head -1)
-            echo "Checking IPv6 reachability via $IPV6_ADDR..."
-            STATUS6=$(curl -6 -s -o /dev/null -w "%{http_code}" --max-time 10 \
-              --resolve "craft-dashboard.name:443:[$IPV6_ADDR]" \
-              https://craft-dashboard.name/ 2>/dev/null || true)
-            echo "  IPv6 status: $STATUS6"
-            [ "$STATUS6" = "200" ] || { echo "ERROR: craft-dashboard did not come up on IPv6 (status: $STATUS6)"; exit 1; }
-            echo "craft-dashboard is up on IPv6."
-
-            # Verify bm-tracker. The app redirects an unauthenticated / to /login
-            # with a 303, so a redirect is the healthy answer and the check has
-            # to name it: testing for 200 or 302 would fail every deploy against
-            # a working app. `-L` follows it to the login page, which is the
-            # thing that actually proves the app is serving.
-            echo "Waiting for bm-tracker to come up (IPv4)..."
-            for i in $(seq 1 12); do
-              BM_STATUS=$(curl -4 -sL -o /dev/null -w "%{http_code}" --max-time 10 \
-                --resolve 3142468.xyz:443:127.0.0.1 \
-                --resolve 3142468.xyz:80:127.0.0.1 \
-                https://3142468.xyz/ 2>/dev/null || true)
-              echo "  attempt $i: $BM_STATUS"
-              [ "$BM_STATUS" = "200" ] && break
-              sleep 5
-            done
-            [ "$BM_STATUS" = "200" ] || { echo "ERROR: bm-tracker did not come up (last status: $BM_STATUS)"; exit 1; }
-            echo "bm-tracker is up."
-
-            # Verify eggcalculator.com (static site served by Caddy).
-            EGG_STATUS=$(curl -4 -s -o /dev/null -w "%{http_code}" --max-time 10 \
-              --resolve eggcalculator.com:443:127.0.0.1 \
-              https://eggcalculator.com/ 2>/dev/null || true)
-            echo "eggcalculator.com status: $EGG_STATUS"
-            [ "$EGG_STATUS" = "200" ] || { echo "ERROR: eggcalculator.com did not come up (status: $EGG_STATUS)"; exit 1; }
-            echo "eggcalculator.com is up."
-
-            # Verify pcbisolation.com (Hugo static site).
-            # Use HTTP: Caddy can't issue a TLS cert via ACME until DNS points to this VPS,
-            # so port 443 is unavailable pre-cutover. Port 80 returns 308→HTTPS, confirming
-            # Caddy is up and serving the domain.
-            PCB_STATUS=$(curl -4 -s -o /dev/null -w "%{http_code}" --max-time 10 \
-              --resolve pcbisolation.com:80:127.0.0.1 \
-              http://pcbisolation.com/ 2>/dev/null || true)
-            echo "pcbisolation.com status: $PCB_STATUS"
-            [[ "$PCB_STATUS" = "200" || "$PCB_STATUS" = "301" || "$PCB_STATUS" = "308" ]] || \
-              { echo "ERROR: pcbisolation.com did not come up (status: $PCB_STATUS)"; exit 1; }
-            echo "pcbisolation.com is up."
-
-            # Verify comments.pcbisolation.com (Remark42) — same pre-DNS caveat.
-            REMARK_STATUS=$(curl -4 -s -o /dev/null -w "%{http_code}" --max-time 10 \
-              --resolve comments.pcbisolation.com:80:127.0.0.1 \
-              http://comments.pcbisolation.com/api/v1/ping 2>/dev/null || true)
-            echo "comments.pcbisolation.com status: $REMARK_STATUS"
-            [[ "$REMARK_STATUS" = "200" || "$REMARK_STATUS" = "301" || "$REMARK_STATUS" = "308" ]] || \
-              { echo "ERROR: Remark42 did not come up (status: $REMARK_STATUS)"; exit 1; }
-            echo "comments.pcbisolation.com is up."
-
-            # Verify flashcandy.us (static site served by Caddy) — same pre-DNS caveat
-            # as pcbisolation.com above (DNS still points at the old cPanel host).
-            FLASHCANDY_STATUS=$(curl -4 -s -o /dev/null -w "%{http_code}" --max-time 10 \
-              --resolve flashcandy.us:80:127.0.0.1 \
-              http://flashcandy.us/ 2>/dev/null || true)
-            echo "flashcandy.us status: $FLASHCANDY_STATUS"
-            [[ "$FLASHCANDY_STATUS" = "200" || "$FLASHCANDY_STATUS" = "301" || "$FLASHCANDY_STATUS" = "308" ]] || \
-              { echo "ERROR: flashcandy.us did not come up (status: $FLASHCANDY_STATUS)"; exit 1; }
-            echo "flashcandy.us is up."
+            # Run full verification suite
+            verify_craft_dashboard
+            verify_bm_tracker
+            verify_egg_calculator
+            verify_pcbisolation
+            verify_remark42
+            verify_flashcandy
