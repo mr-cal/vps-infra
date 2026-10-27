@@ -44,6 +44,32 @@ else
   warn "IPv6  no AAAA record for ${SITE}"
 fi
 
+# ── Site availability and media checks ──────────────────────────────────────
+
+echo ""
+echo "━━━ Sites & representative media ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+check_url() {
+  local label="$1"
+  local url="$2"
+  local code
+  code=$(curl -sL -o /dev/null -w "%{http_code}" --max-time 10 "${url}" 2>/dev/null || echo "000")
+  if [ "${code}" = "200" ]; then
+    ok "${label} (${url}) → HTTP ${code}"
+  else
+    fail "${label} (${url}) → HTTP ${code}"
+  fi
+}
+
+check_url "craft-dashboard" "https://craft-dashboard.name/"
+check_url "3142468.xyz (bm-tracker)" "https://3142468.xyz/"
+check_url "eggcalculator.com" "https://eggcalculator.com/"
+check_url "comments.pcbisolation.com" "https://comments.pcbisolation.com/web/"
+check_url "pcbisolation.com" "https://pcbisolation.com/"
+check_url "pcbisolation.com image redirect" "https://pcbisolation.com/wp-content/uploads/2013/02/powered-subwoofer-01-300x184.jpg"
+check_url "flashcandy.us" "https://flashcandy.us/"
+check_url "flashcandy.us product image" "https://flashcandy.us/img/3V32AR5_3_530x.jpg"
+
 # ── Container + host checks via SSH ─────────────────────────────────────────
 
 echo ""

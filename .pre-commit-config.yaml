@@ -37,3 +37,10 @@ repos:
         pass_filenames: false
         types: [file]
         files: '^cron\.d/'
+
+      - id: validate-static-media
+        name: Validate static site media links
+        language: system
+        entry: python3 scripts/validate_static_media.py
+        pass_filenames: false
+        always_run: true
