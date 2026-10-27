@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help lint format test shellcheck yamllint gitleaks caddy-validate pre-commit setup
+.PHONY: help lint format test shellcheck yamllint gitleaks caddy-validate compose-validate pre-commit setup
 
 help:  ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -26,10 +26,13 @@ gitleaks:  ## Scan for secrets in git history
 caddy-validate:  ## Validate Caddyfile configuration
 	@python3 scripts/validate_caddyfile.py
 
+compose-validate:  ## Validate docker-compose configuration and structure
+	@python3 scripts/validate_compose.py
+
 pre-commit:  ## Run all pre-commit hooks
 	uvx --from pre-commit pre-commit run --all-files
 
-lint: shellcheck yamllint gitleaks caddy-validate  ## Run all linters
+lint: shellcheck yamllint gitleaks caddy-validate compose-validate  ## Run all linters
 
 test:  ## Run pre-commit as the test suite (CI parity)
 	uvx --from pre-commit pre-commit run --all-files

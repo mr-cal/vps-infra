@@ -51,3 +51,10 @@ repos:
         entry: python3 scripts/validate_caddyfile.py
         pass_filenames: false
         files: '^caddy/'
+
+      - id: validate-compose
+        name: Validate docker-compose configurations
+        language: system
+        entry: python3 scripts/validate_compose.py
+        pass_filenames: false
+        files: '^docker-compose\..*\.ya?ml$'
