@@ -44,3 +44,10 @@ repos:
         entry: python3 scripts/validate_static_media.py
         pass_filenames: false
         always_run: true
+
+      - id: validate-caddyfile
+        name: Validate Caddyfile syntax
+        language: system
+        entry: python3 scripts/validate_caddyfile.py
+        pass_filenames: false
+        files: '^caddy/'
