@@ -46,3 +46,19 @@ jobs:
       - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
       - name: Run pre-commit hooks
         run: uvx --from pre-commit pre-commit run --all-files
+
+  trivy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
+      - name: Scan compose images for critical vulnerabilities
+        run: |
+          IMAGES=(
+            "docker.io/library/caddy:2-alpine"
+            "docker.io/pgvector/pgvector:pg16"
+          )
+          for img in "${IMAGES[@]}"; do
+            echo "Scanning $img..."
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+              aquasec/trivy:latest image --severity CRITICAL --scanners vuln --exit-code 0 "$img"
+          done
