@@ -1,12 +1,26 @@
 # Caddy auto-obtains and renews TLS certificates for all listed domains.
-
 {
 	# Explicitly use Let's Encrypt production CA.
 	acme_ca https://acme-v02.api.letsencrypt.org/directory
 }
 
+# Common security headers for all hosted sites
+(security_headers) {
+	header {
+		# Prevent MIME type sniffing
+		X-Content-Type-Options "nosniff"
+		# Referrer policy to protect user privacy
+		Referrer-Policy "strict-origin-when-cross-origin"
+		# Disable unnecessary browser features/APIs
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+		# Clickjacking protection for standalone sites
+		X-Frame-Options "SAMEORIGIN"
+	}
+}
+
 # craft-dashboard — reverse proxy to the FastAPI app
 craft-dashboard.name {
+	import security_headers
 	reverse_proxy craft-dashboard:8000
 }
 
@@ -15,11 +29,13 @@ craft-dashboard.name {
 # whole site, not one of several, and the apex A/AAAA records already point
 # here so there is no DNS to add.
 3142468.xyz {
+	import security_headers
 	reverse_proxy bm-tracker:8000
 }
 
 # egg-calculator — static site served from the git submodule
 eggcalculator.com {
+	import security_headers
 	root * /srv/egg-calculator/src
 	file_server
 }
@@ -31,6 +47,7 @@ www.eggcalculator.com {
 
 # flashcandy — static site served from the git submodule
 flashcandy.us {
+	import security_headers
 	root * /srv/flashcandy/public
 	file_server
 }
@@ -42,6 +59,7 @@ www.flashcandy.us {
 
 # pcbisolation — Hugo static site
 pcbisolation.com {
+	import security_headers
 	root * /srv/pcbisolation
 	file_server
 
@@ -56,5 +74,12 @@ www.pcbisolation.com {
 
 # Remark42 self-hosted comments
 comments.pcbisolation.com {
+	# Note: Remark42 sets its own X-Frame-Options / frame-ancestors to permit
+	# embedding inside pcbisolation.com.
+	header {
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+	}
 	reverse_proxy vps-infra_remark42_1:8080
 }
