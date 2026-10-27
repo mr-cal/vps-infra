@@ -289,6 +289,9 @@ jobs:
 
             install -m 0644 logrotate.d/collect-data /etc/logrotate.d/collect-data
             install -m 0644 logrotate.d/commit-scanner /etc/logrotate.d/commit-scanner
+            install -m 0644 logrotate.d/prune-images /etc/logrotate.d/prune-images
+            install -m 0644 logrotate.d/disk-space-check /etc/logrotate.d/disk-space-check
+            install -m 0644 logrotate.d/backups-and-tasks /etc/logrotate.d/backups-and-tasks
 
             install -m 0644 cron.d/prune-images /etc/cron.d/prune-images
             install -m 0644 cron.d/disk-space-check /etc/cron.d/disk-space-check
