@@ -1,5 +1,8 @@
-# craft-dashboard open-issue and release refresh every 20 minutes
-*/20 * * * * root podman exec -i vps-infra_craft-dashboard_1 /app/.venv/bin/python /app/scripts/collect_data.py --source github --mode open >> /var/log/collect-data.log 2>&1
+# craft-dashboard open-issue and release refresh every 20 minutes.
+# flock: a pass takes 15-27 min, so without a lock overlapping instances pile
+# up and saturate this 1-vCPU VPS (2026-11-23). A tick is skipped while the
+# previous pass (or the rotation below) is still running.
+*/20 * * * * root flock -n /run/lock/collect-data.lock podman exec -i vps-infra_craft-dashboard_1 /app/.venv/bin/python /app/scripts/collect_data.py --source github --mode open >> /var/log/collect-data.log 2>&1
 
 # craft-dashboard hourly full-project refresh rotation — picks whichever
 # project+source (GitHub or Launchpad) has gone longest without a full
@@ -8,7 +11,8 @@
 # fixed "--mode full" cron job, which was per-project gated to once
 # every 7 days (see craft_dashboard/config.py: refresh_interval_days)
 # and left every project's full-refresh timestamp days-to-weeks stale.
-17 * * * * root podman exec -i vps-infra_craft-dashboard_1 /app/.venv/bin/python /app/scripts/collect_data.py --mode rotation >> /var/log/collect-data.log 2>&1
+# Shares the open-pass lock so a full refresh never overlaps it.
+17 * * * * root flock -n /run/lock/collect-data.lock podman exec -i vps-infra_craft-dashboard_1 /app/.venv/bin/python /app/scripts/collect_data.py --mode rotation >> /var/log/collect-data.log 2>&1
 
 # craft-dashboard forum activity backfill+refresh (snapcraft/charmhub/rockcraft Discourse) — every 15 minutes
 */15 * * * * root podman exec -i vps-infra_craft-dashboard_1 /app/.venv/bin/python /app/scripts/collect_forum_data.py --mode all >> /var/log/collect-data.log 2>&1
