@@ -5,7 +5,8 @@
 - IP: 167.99.14.211 (IPv4), 2604:a880:400:d1:0:4:8a34:b001 (IPv6)
 - SSH: `ssh root@167.99.14.211`
 - OS: Ubuntu 24.04
-- RAM: 458MB + 1GB swap (`/swapfile`)
+- RAM: 1GB, plus zram swap (zstd, 50% of RAM, priority 100 — installed by
+  the deploy script via zram-tools) and a 4GB `/swapfile` fallback (priority -2)
 - Disk: 10GB
 - Hosting: DigitalOcean — firewall managed via cloud console, not UFW
 

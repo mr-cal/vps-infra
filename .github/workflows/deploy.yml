@@ -303,6 +303,23 @@ jobs:
             install -m 0644 systemd/journald-vps-infra.conf /etc/systemd/journald.conf.d/vps-infra.conf
             systemctl restart systemd-journald
 
+            # zram swap: compressed-RAM swap at priority 100, so kswapd reclaims
+            # to fast zram instead of thrashing the /swapfile on disk (the 1GB
+            # droplet spends real time in kswapd otherwise). /swapfile stays
+            # mounted as a low-priority fallback. Restart (not just enable) so
+            # config changes apply on every deploy.
+            if ! dpkg -s zram-tools >/dev/null 2>&1; then
+              apt-get update -qq
+              apt-get install -y -qq zram-tools
+            fi
+            cat > /etc/default/zramswap <<EOF
+            ALGO=zstd
+            PERCENT=50
+            PRIORITY=100
+            EOF
+            systemctl enable zramswap.service >/dev/null 2>&1 || true
+            systemctl restart zramswap.service
+
             install -d -m 0700 /etc/vps-infra
             cat > /etc/vps-infra/secrets.env <<EOF
             RESEND_API_KEY=${RESEND_API_KEY}
@@ -368,6 +385,11 @@ jobs:
                 echo "Reloading Caddy configuration with 0 downtime..."
                 podman exec vps-infra_caddy_1 caddy reload --config /etc/caddy/Caddyfile || true
               fi
+
+              # pg_stat_statements is preloaded via the postgres compose command;
+              # the extension still needs one-time registration in the database.
+              podman exec vps-infra_postgres_1 psql -U craft_dashboard -d craft_dashboard \
+                -c 'CREATE EXTENSION IF NOT EXISTS pg_stat_statements;'
             fi
 
             # Verify containers are running

@@ -14,5 +14,7 @@
 # Shares the open-pass lock so a full refresh never overlaps it.
 17 * * * * root flock -n /run/lock/collect-data.lock podman exec -i vps-infra_craft-dashboard_1 /app/.venv/bin/python /app/scripts/collect_data.py --mode rotation >> /var/log/collect-data.log 2>&1
 
-# craft-dashboard forum activity backfill+refresh (snapcraft/charmhub/rockcraft Discourse) — every 15 minutes
-*/15 * * * * root podman exec -i vps-infra_craft-dashboard_1 /app/.venv/bin/python /app/scripts/collect_forum_data.py --mode all >> /var/log/collect-data.log 2>&1
+# craft-dashboard forum activity backfill+refresh (snapcraft/charmhub/rockcraft Discourse) — every 15 minutes.
+# Shares the collect-data lock: all three collector jobs serialize on
+# /run/lock/collect-data.lock so the box runs at most one collector at a time.
+*/15 * * * * root flock -n /run/lock/collect-data.lock podman exec -i vps-infra_craft-dashboard_1 /app/.venv/bin/python /app/scripts/collect_forum_data.py --mode all >> /var/log/collect-data.log 2>&1
