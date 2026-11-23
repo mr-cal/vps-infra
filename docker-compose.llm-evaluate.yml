@@ -28,7 +28,11 @@ services:
       CRAFT_DASHBOARD_GIT_CONCURRENCY: 2
     networks:
       - vps-net
-    restart: unless-stopped
+    # Cap restarts: with unless-stopped, a fatal startup error (e.g. HTTP 426
+    # version-gate rejection) becomes an instant crash-restart loop that pins
+    # this 1-vCPU box (2026-11 incident: 400k+ restarts in a week). After 5
+    # failures the container stays down until the next deploy recreates it.
+    restart: "on-failure:5"
 
 networks:
   vps-net:

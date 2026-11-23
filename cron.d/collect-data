@@ -1,5 +1,5 @@
-# craft-dashboard open-issue and release refresh every 10 minutes
-*/10 * * * * root podman exec -i vps-infra_craft-dashboard_1 /app/.venv/bin/python /app/scripts/collect_data.py --source github --mode open >> /var/log/collect-data.log 2>&1
+# craft-dashboard open-issue and release refresh every 20 minutes
+*/20 * * * * root podman exec -i vps-infra_craft-dashboard_1 /app/.venv/bin/python /app/scripts/collect_data.py --source github --mode open >> /var/log/collect-data.log 2>&1
 
 # craft-dashboard hourly full-project refresh rotation — picks whichever
 # project+source (GitHub or Launchpad) has gone longest without a full
