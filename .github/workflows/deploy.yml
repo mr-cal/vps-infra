@@ -308,8 +308,19 @@ jobs:
             # droplet spends real time in kswapd otherwise). /swapfile stays
             # mounted as a low-priority fallback. Restart (not just enable) so
             # config changes apply on every deploy.
+            # DO's minimal image ships no host kernel modules, so the zram
+            # module must come from linux-modules-extra; if that package is
+            # unavailable for the running kernel, continue without zram.
+            if ! modprobe zram 2>/dev/null; then
+              echo "zram module missing; installing linux-modules-extra-$(uname -r)"
+              apt-get update -qq || true
+              if apt-get install -y -qq "linux-modules-extra-$(uname -r)"; then
+                modprobe zram
+              else
+                echo "WARNING: could not install zram kernel modules; continuing without zram"
+              fi
+            fi
             if ! dpkg -s zram-tools >/dev/null 2>&1; then
-              apt-get update -qq
               apt-get install -y -qq zram-tools
             fi
             cat > /etc/default/zramswap <<EOF

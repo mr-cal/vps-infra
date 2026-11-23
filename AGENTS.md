@@ -6,8 +6,10 @@
 - SSH: `ssh root@167.99.14.211`
 - OS: Ubuntu 24.04
 - RAM: 1GB, plus zram swap (zstd, 50% of RAM, priority 100 — installed by
-  the deploy script via zram-tools) and a 4GB `/swapfile` fallback (priority -2)
-- Disk: 10GB
+  the deploy script via zram-tools; DO's minimal image needs
+  `linux-modules-extra-$(uname -r)` for the zram module) and a 1GB
+  `/swapfile` fallback (priority -2)
+- Disk: 24GB
 - Hosting: DigitalOcean — firewall managed via cloud console, not UFW
 
 ## Architecture
