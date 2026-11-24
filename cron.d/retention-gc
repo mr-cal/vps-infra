@@ -1,0 +1,8 @@
+# craft-dashboard retention GC — weekly, Sunday 01:30 UTC.
+# Applies every retention policy (eval transcripts, CI failure rollup,
+# superseded-eval embedding clearing, superseded-eval deletion per
+# eval_retention_days). Without this the llm_evaluations table grew to
+# 1.1M+ superseded rows / 1.9GB (found 2026-11-24). Clear of the other
+# nightly jobs: commit-scanner 02:00, backups 03:00-04:00, backfill Sun 03:00.
+# Waits up to 15 min for a running collector instead of skipping a whole week.
+30 1 * * 0 root flock -w 900 /run/lock/collect-data.lock podman exec -i vps-infra_craft-dashboard_1 /app/.venv/bin/python /app/scripts/gc.py >> /var/log/retention-gc.log 2>&1

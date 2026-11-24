@@ -1,8 +1,9 @@
-# craft-dashboard open-issue and release refresh every 20 minutes.
-# flock: a pass takes 15-27 min, so without a lock overlapping instances pile
-# up and saturate this 1-vCPU VPS (2026-11-23). A tick is skipped while the
-# previous pass (or the rotation below) is still running.
-*/20 * * * * root flock -n /run/lock/collect-data.lock podman exec -i vps-infra_craft-dashboard_1 /app/.venv/bin/python /app/scripts/collect_data.py --source github --mode open >> /var/log/collect-data.log 2>&1
+# craft-dashboard open-issue and release refresh every 10 minutes.
+# flock: a gated pass takes ~2.5 min (post Tier-1/2), but without a lock a
+# slow pass would pile up instances and saturate this 1-vCPU VPS
+# (2026-11-23). A tick is skipped while the previous pass (or another
+# collector) is still running.
+*/10 * * * * root flock -n /run/lock/collect-data.lock podman exec -i vps-infra_craft-dashboard_1 /app/.venv/bin/python /app/scripts/collect_data.py --source github --mode open >> /var/log/collect-data.log 2>&1
 
 # craft-dashboard hourly full-project refresh rotation — picks whichever
 # project+source (GitHub or Launchpad) has gone longest without a full

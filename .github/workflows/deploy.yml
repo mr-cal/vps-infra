@@ -282,6 +282,7 @@ jobs:
 
             # Install/update cron jobs for craft-dashboard.
             install -m 0644 cron.d/collect-data /etc/cron.d/collect-data
+            install -m 0644 cron.d/retention-gc /etc/cron.d/retention-gc
             install -m 0644 cron.d/backfill-snapshots /etc/cron.d/backfill-snapshots
             install -m 0644 cron.d/commit-scanner /etc/cron.d/commit-scanner
             install -m 0644 cron.d/backup-craft-dashboard /etc/cron.d/backup-craft-dashboard

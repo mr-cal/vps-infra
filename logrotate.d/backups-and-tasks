@@ -1,7 +1,8 @@
 /var/log/backup-bm-tracker.log
 /var/log/backup-craft-dashboard.log
 /var/log/backup-remark42.log
-/var/log/backfill-snapshots.log {
+/var/log/backfill-snapshots.log
+/var/log/retention-gc.log {
     weekly
     rotate 4
     compress
